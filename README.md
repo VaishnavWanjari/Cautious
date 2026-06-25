@@ -87,6 +87,13 @@ On Windows, just double-click **`run-standalone.bat`**. This needs no
 laptops. (The full FastAPI + Electron build below adds Excel/PDF export, the
 React desktop shell and SQLite persistence.)
 
+### Windows with **no administrator rights**
+
+Locked-down site laptop? Use **`run-portable-windows.bat`** — it runs with no
+admin, no installer, no pip/npm and no internet, against either an existing
+Python (`py` launcher) or a bundled portable Python you simply unzip. Full
+step-by-step in **[docs/WINDOWS-NO-ADMIN.md](docs/WINDOWS-NO-ADMIN.md)**.
+
 ## Full desktop app on Windows — no administrator needed
 
 1. Install [Python 3.11+](https://python.org) (tick *Add Python to PATH*) and
