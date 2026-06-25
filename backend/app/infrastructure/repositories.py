@@ -69,6 +69,7 @@ def load_domain(
             id=str(a.id),
             name=a.name,
             duration=a.duration,
+            code=a.activity_id,
             discipline=a.discipline,
             status=a.status,
             priority=a.priority,

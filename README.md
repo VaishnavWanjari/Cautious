@@ -71,7 +71,23 @@ specification modules.
 
 ---
 
-## Quick start on Windows — no administrator needed
+## Fastest start — zero-dependency standalone mode (no pip, no npm)
+
+If you only have Python 3.11+ and no way to install packages, run the
+**standalone** server. It uses the Python standard library only and serves a
+self-contained web UI that reuses the exact same scheduling engine:
+
+```bash
+cd backend
+python -m app.standalone        # then open http://127.0.0.1:8000
+```
+
+On Windows, just double-click **`run-standalone.bat`**. This needs no
+`pip install`, no `npm install`, and no internet — ideal for locked-down site
+laptops. (The full FastAPI + Electron build below adds Excel/PDF export, the
+React desktop shell and SQLite persistence.)
+
+## Full desktop app on Windows — no administrator needed
 
 1. Install [Python 3.11+](https://python.org) (tick *Add Python to PATH*) and
    [Node.js 18+](https://nodejs.org).

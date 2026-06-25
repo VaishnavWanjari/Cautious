@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Commissioning Scheduler Pro</title>
+<style>
+  :root { --epc:#1F4E78; --epc-dark:#0f2a43; --crit:#e4572e; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"Segoe UI",system-ui,Arial,sans-serif; background:#f3f5f8; color:#1f2933; }
+  .app { display:flex; height:100vh; }
+  aside { width:210px; background:var(--epc-dark); color:#fff; display:flex; flex-direction:column; }
+  aside .brand { padding:16px; border-bottom:1px solid rgba(255,255,255,.1); }
+  aside .brand b { display:block; font-size:14px; line-height:1.2; }
+  aside .brand small { color:rgba(255,255,255,.5); font-size:10px; letter-spacing:.5px; text-transform:uppercase; }
+  nav button { width:100%; text-align:left; background:none; border:0; color:rgba(255,255,255,.7);
+    padding:10px 16px; font-size:13px; cursor:pointer; }
+  nav button:hover { background:rgba(255,255,255,.06); }
+  nav button.active { background:var(--epc); color:#fff; }
+  aside .foot { margin-top:auto; padding:12px 16px; font-size:11px; color:rgba(255,255,255,.5); border-top:1px solid rgba(255,255,255,.1); }
+  main { flex:1; display:flex; flex-direction:column; min-width:0; }
+  header { height:52px; background:#fff; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; padding:0 18px; gap:14px; }
+  header .title { font-weight:600; color:#334155; }
+  header .spacer { flex:1; }
+  .btn { background:var(--epc); color:#fff; border:0; border-radius:6px; padding:7px 12px; font-size:13px; cursor:pointer; }
+  .btn:hover { background:#163a5a; }
+  .btn.ghost { background:#eef2f7; color:#334155; }
+  section.view { flex:1; overflow:auto; padding:20px; }
+  .cards { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+  .card { background:#fff; border:1px solid #eef0f3; border-radius:12px; padding:14px 18px; min-width:120px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+  .card .num { font-size:28px; font-weight:700; color:var(--epc); }
+  .card .num.crit { color:var(--crit); }
+  .card .lbl { font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:#64748b; }
+  table { width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+  th { background:#f1f5f9; color:#475569; text-align:left; padding:9px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
+  td { padding:8px 12px; border-top:1px solid #f1f5f9; font-size:13px; }
+  tr.crit td { background:#fff3ee; }
+  .dot { color:var(--crit); }
+  input,select { border:1px solid #cbd5e1; border-radius:6px; padding:5px 8px; font-size:13px; }
+  .panel { background:#fff; border:1px solid #eef0f3; border-radius:12px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,.05); margin-bottom:16px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .muted { color:#94a3b8; font-size:12px; }
+  h1 { font-size:18px; margin:0 0 4px; color:#334155; }
+  .warn { color:#b45309; font-size:13px; } .err { color:#dc2626; font-size:13px; }
+  /* gantt */
+  .gantt-row { display:flex; align-items:center; height:30px; border-top:1px solid #f1f5f9; }
+  .gantt-label { width:200px; font-size:12px; padding-left:10px; white-space:nowrap; overflow:hidden; }
+  .gantt-track { position:relative; flex:1; height:100%; }
+  .gantt-bar { position:absolute; top:6px; height:18px; border-radius:4px; background:var(--epc); color:#fff; font-size:10px; display:flex; align-items:center; padding:0 6px; }
+  .gantt-bar.crit { background:var(--crit); }
+  /* chat */
+  .msg { max-width:78%; padding:8px 11px; border-radius:9px; font-size:13px; margin:5px 0; white-space:pre-wrap; }
+  .msg.user { background:var(--epc); color:#fff; margin-left:auto; }
+  .msg.ai { background:#eef2f7; }
+  svg text { font-family:inherit; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand"><b>Commissioning</b><b>Scheduler Pro</b><small>EPC Pre-Commissioning</small></div>
+    <nav id="nav"></nav>
+    <div class="foot" id="aifoot">AI: …</div>
+  </aside>
+  <main>
+    <header>
+      <span class="title" id="projTitle">…</span>
+      <span class="spacer"></span>
+      <button class="btn ghost" onclick="resetSeed()">Reset sample</button>
+      <button class="btn" onclick="recompute()">↻ Recalculate Schedule</button>
+    </header>
+    <section class="view" id="view"></section>
+  </main>
+</div>
+<script>
+const API = "";
+const TABS = ["Dashboard","Network","Gantt","Activities","Logic","Exports","AI"];
+let current = "Dashboard";
+
+async function api(method, path, body){
+  const r = await fetch(API+path,{method,headers: body?{"Content-Type":"application/json"}:undefined,body:body?JSON.stringify(body):undefined});
+  if(!r.ok){ const t=await r.text(); throw new Error(r.status+": "+t); }
+  const ct=r.headers.get("content-type")||""; return ct.includes("json")? r.json(): r.text();
+}
+function el(html){ const d=document.createElement("div"); d.innerHTML=html.trim(); return d.firstChild; }
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+function renderNav(){
+  const nav=document.getElementById("nav"); nav.innerHTML="";
+  TABS.forEach(t=>{ const b=el(`<button>${t}</button>`); b.className=t===current?"active":""; b.onclick=()=>{current=t;render();renderNav();}; nav.appendChild(b); });
+}
+
+async function recompute(){ await api("GET","/api/schedule/compute"); render(); }
+async function resetSeed(){ await api("POST","/api/reset",{}); render(); }
+
+async function render(){
+  const v=document.getElementById("view");
+  const summary=await api("GET","/api/summary");
+  document.getElementById("projTitle").textContent=summary.project.name;
+  if(current==="Dashboard") return renderDashboard(v,summary);
+  if(current==="Network") return renderNetwork(v);
+  if(current==="Gantt") return renderGantt(v,summary);
+  if(current==="Activities") return renderActivities(v);
+  if(current==="Logic") return renderLogic(v);
+  if(current==="Exports") return renderExports(v);
+  if(current==="AI") return renderAI(v);
+}
+
+async function renderDashboard(v,s){
+  const val=await api("GET","/api/validate");
+  const readiness=s.total_activities? Math.round(s.completed/s.total_activities*100):0;
+  v.innerHTML="";
+  v.appendChild(el(`<div><h1>${esc(s.project.name)}</h1>
+    <div class="muted">${esc(s.project.client)} · Mechanical Completion: ${esc(s.project.mechanical_completion_date)} · Planned Startup: ${esc(s.project.planned_startup_date)}</div></div>`));
+  const cards=el(`<div class="cards"></div>`);
+  [["Total",s.total_activities,""],["Completed",s.completed,""],["In Progress",s.in_progress,""],
+   ["Pending",s.pending,""],["Critical",s.critical,"crit"],["Readiness %",readiness,""]].forEach(([l,n,c])=>
+     cards.appendChild(el(`<div class="card"><div class="num ${c}">${n}</div><div class="lbl">${l}</div></div>`)));
+  v.appendChild(cards);
+  if(val.errors.length||val.warnings.length){
+    const p=el(`<div class="panel"><b style="font-size:13px">Network Validation</b></div>`);
+    val.errors.forEach(e=>p.appendChild(el(`<div class="err">✕ ${esc(e)}</div>`)));
+    val.warnings.forEach(w=>p.appendChild(el(`<div class="warn">⚠ ${esc(w)}</div>`)));
+    v.appendChild(p);
+  }
+  const rows=s.activities.map(a=>`<tr class="${a.is_critical?'crit':''}">
+    <td>${a.is_critical?'<span class="dot">●</span> ':''}<b>${esc(a.activity_id)}</b> ${esc(a.name)}</td>
+    <td>${a.duration}d</td><td>${esc(a.start_date)||'—'}</td><td>${esc(a.finish_date)||'—'}</td>
+    <td>${a.total_float??'—'}</td><td>${esc(a.status)}</td></tr>`).join("");
+  v.appendChild(el(`<table><thead><tr><th>Activity</th><th>Dur</th><th>Start</th><th>Finish</th><th>Float</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`));
+}
+
+async function renderNetwork(v){
+  const net=await api("GET","/api/network");
+  const W=230,H=96,padX=20,padY=20;
+  let maxX=0,maxY=0; const pos={};
+  net.nodes.forEach(n=>{ pos[n.id]=n.position; maxX=Math.max(maxX,n.position.x); maxY=Math.max(maxY,n.position.y); });
+  const svgW=maxX+W+padX*2, svgH=Math.max(260,maxY+H+padY*2);
+  const lines=net.edges.map(e=>{
+    const a=pos[e.source],b=pos[e.target]; if(!a||!b) return "";
+    const x1=a.x+padX+W,y1=a.y+padY+H/2,x2=b.x+padX,y2=b.y+padY+H/2;
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <text x="${(x1+x2)/2}" y="${(y1+y2)/2-4}" font-size="10" fill="#475569" text-anchor="middle">${esc(e.label)}</text>`;
+  }).join("");
+  const cards=net.nodes.map(n=>{ const d=n.data,x=n.position.x+padX,y=n.position.y+padY;
+    const stroke=d.isCritical?"#e4572e":"#cbd5e1", head=d.isCritical?"#b3411f":"#1f4e78";
+    return `<g>
+      <rect x="${x}" y="${y}" width="${W}" height="${H}" rx="9" fill="#fff" stroke="${stroke}" stroke-width="${d.isCritical?2:1}"/>
+      <rect x="${x}" y="${y}" width="${W}" height="24" rx="9" fill="${head}"/>
+      <rect x="${x}" y="${y+12}" width="${W}" height="12" fill="${head}"/>
+      <text x="${x+9}" y="${y+16}" fill="#fff" font-size="12" font-weight="600">${esc(d.activityId)}</text>
+      <text x="${x+W-9}" y="${y+16}" fill="#fff" font-size="11" text-anchor="end">${d.duration}d</text>
+      <text x="${x+9}" y="${y+42}" font-size="12" font-weight="600" fill="#334155">${esc(d.name)}</text>
+      <text x="${x+9}" y="${y+60}" font-size="11" fill="#64748b">Start ${esc(d.startDate)||'—'}</text>
+      <text x="${x+9}" y="${y+76}" font-size="11" fill="#64748b">Finish ${esc(d.finishDate)||'—'}</text>
+      <text x="${x+9}" y="${y+90}" font-size="11" fill="#64748b">Float ${d.totalFloat??'—'} · ${esc(d.discipline)}</text>
+    </g>`; }).join("");
+  v.innerHTML=`<h1>Visual Logic Network</h1><div class="muted" style="margin-bottom:10px">Layered auto-layout · critical path in orange. Edit links under the Activities tab.</div>
+    <div class="panel" style="overflow:auto">
+    <svg width="${svgW}" height="${svgH}">
+      <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L8,3 L0,6 Z" fill="#64748b"/></marker></defs>
+      ${lines}${cards}
+    </svg></div>`;
+}
+
+async function renderGantt(v,s){
+  const acts=s.activities.filter(a=>a.start_date&&a.finish_date);
+  if(!acts.length){ v.innerHTML="<h1>Gantt</h1><div class='muted'>No scheduled activities.</div>"; return; }
+  const DAY=86400000;
+  const min=Math.min(...acts.map(a=>+new Date(a.start_date)));
+  const max=Math.max(...acts.map(a=>+new Date(a.finish_date)));
+  const totalDays=Math.round((max-min)/DAY)+1; const cw=24;
+  let rows=acts.map(a=>{
+    const off=Math.round((+new Date(a.start_date)-min)/DAY);
+    const span=Math.round((+new Date(a.finish_date)-+new Date(a.start_date))/DAY)+1;
+    return `<div class="gantt-row"><div class="gantt-label">${a.is_critical?'<span class="dot">●</span> ':''}<b>${esc(a.activity_id)}</b> ${esc(a.name)}</div>
+      <div class="gantt-track"><div class="gantt-bar ${a.is_critical?'crit':''}" style="left:${off*cw}px;width:${span*cw-2}px" title="${esc(a.start_date)} → ${esc(a.finish_date)}">${a.duration}d</div></div></div>`;
+  }).join("");
+  v.innerHTML=`<h1>Gantt Chart</h1><div class="muted" style="margin-bottom:8px">Project ${esc(s.project.mechanical_completion_date)} anchor · ${totalDays} calendar days span.</div>
+    <div class="panel" style="overflow:auto;min-width:${200+totalDays*cw}px">${rows}</div>`;
+}
+
+async function renderActivities(v){
+  const [acts,rels,tpls]=await Promise.all([api("GET","/api/activities"),api("GET","/api/relationships"),api("GET","/api/templates")]);
+  const opt=acts.map(a=>`<option value="${a.id}">${esc(a.activity_id)} ${esc(a.name)}</option>`).join("");
+  const trows=acts.map(a=>`<tr>
+    <td><b>${esc(a.activity_id)}</b></td><td>${esc(a.name)}</td>
+    <td><input type="number" min="1" value="${a.duration}" style="width:60px" onchange="setDur(${a.id},this.value)"></td>
+    <td><select onchange="setStatus(${a.id},this.value)">${["Not Started","In Progress","Completed","On Hold"].map(s=>`<option ${s===a.status?'selected':''}>${s}</option>`).join("")}</select></td>
+    <td>${esc(a.discipline)}</td>
+    <td><button class="btn ghost" onclick="delAct(${a.id})">✕</button></td></tr>`).join("");
+  const rrows=rels.map(r=>{ const p=acts.find(a=>a.id===r.predecessor_id),s=acts.find(a=>a.id===r.successor_id);
+    return `<tr><td>${esc(p?.activity_id)} → ${esc(s?.activity_id)}</td><td>${r.rel_type}${r.lag?(r.lag>0?'+':'')+r.lag:''}</td>
+      <td><button class="btn ghost" onclick="delRel(${r.id})">✕</button></td></tr>`; }).join("");
+  v.innerHTML=`<h1>Activities & Logic Links</h1>
+    <div class="panel"><div class="row">
+      <select id="tpl">${tpls.map(t=>`<option value="${t.id}">${esc(t.name)} (${t.default_duration}d)</option>`).join("")}</select>
+      <button class="btn" onclick="addFromTpl()">+ Add activity from template</button></div></div>
+    <table><thead><tr><th>ID</th><th>Name</th><th>Dur</th><th>Status</th><th>Disc.</th><th></th></tr></thead><tbody>${trows}</tbody></table>
+    <div class="panel" style="margin-top:18px"><b style="font-size:13px">Relationships</b>
+      <div class="row" style="margin:8px 0">
+        Pred <select id="pred">${opt}</select> Succ <select id="succ">${opt}</select>
+        Type <select id="rtype"><option>FS</option><option>SS</option><option>FF</option><option>SF</option></select>
+        Lag <input id="lag" type="number" value="0" style="width:54px">
+        <button class="btn" onclick="addRel()">+ Link</button></div>
+      <table><thead><tr><th>Link</th><th>Type</th><th></th></tr></thead><tbody>${rrows}</tbody></table></div>
+    <div class="muted" style="margin-top:8px">Edits recompute the backward schedule and critical path automatically.</div>`;
+  window._tpls=tpls;
+}
+async function setDur(id,val){ await api("PUT","/api/activities/"+id,{duration:Number(val)}); await recompute(); }
+async function setStatus(id,val){ await api("PUT","/api/activities/"+id,{status:val}); render(); }
+async function delAct(id){ await api("DELETE","/api/activities/"+id); await recompute(); }
+async function delRel(id){ await api("DELETE","/api/relationships/"+id); await recompute(); }
+async function addFromTpl(){ const t=window._tpls.find(x=>x.id===Number(document.getElementById("tpl").value));
+  await api("POST","/api/activities",{name:t.name,duration:t.default_duration,discipline:t.discipline}); await recompute(); }
+async function addRel(){ await api("POST","/api/relationships",{predecessor_id:Number(pred.value),successor_id:Number(succ.value),rel_type:rtype.value,lag:Number(lag.value)}); await recompute(); }
+
+async function renderLogic(v){
+  const rules=await api("GET","/api/logic-rules");
+  const items=rules.map(r=>`<div class="panel" style="display:flex;justify-content:space-between;margin-bottom:8px">
+    <div><b style="color:var(--epc)">IF</b> ${esc(r.condition)} <b style="color:var(--epc)">THEN</b> ${esc(r.action)}</div>
+    <button class="btn ghost" onclick="delRule(${r.id})">✕</button></div>`).join("");
+  v.innerHTML=`<h1>No-Code Logic Engine</h1><div class="muted" style="margin-bottom:10px">Plain-language rules with AND / OR / NOT.</div>
+    <div class="panel"><div class="row">
+      IF <input id="cond" placeholder="Hydrotest Complete AND Nitrogen Available" style="flex:1">
+      THEN <input id="act" placeholder="Enable Leak Test" style="flex:1">
+      <button class="btn" onclick="addRule()">Add</button></div></div>${items}`;
+}
+async function addRule(){ if(!cond.value.trim())return; await api("POST","/api/logic-rules",{condition:cond.value,action:act.value}); render(); }
+async function delRule(id){ await api("DELETE","/api/logic-rules/"+id); render(); }
+
+function renderExports(v){
+  v.innerHTML=`<h1>Exports & Reports</h1><div class="muted" style="margin-bottom:14px">Generated offline by the local server.</div>
+    <div class="row">
+      <a class="btn" href="/api/export/html" target="_blank">HTML Dashboard</a>
+      <a class="btn" href="/api/export/csv">CSV Schedule</a>
+    </div>
+    <div class="muted" style="margin-top:14px">Excel (.xlsx) & PDF are available in the full FastAPI build (needs OpenPyXL/ReportLab). Primavera XER and the Aramco pack are Phase 2.</div>`;
+}
+
+let chat=[];
+async function renderAI(v){
+  const h=await api("GET","/api/health");
+  v.innerHTML=`<h1>AI Assistant</h1><div class="muted" style="margin-bottom:10px">${h.ai_available?'Claude online — ask about the critical path or bottlenecks.':'Offline — set ANTHROPIC_API_KEY to enable Claude. The rest of the app works without it.'}</div>
+    <div class="panel" id="chatbox" style="height:340px;overflow:auto">${chat.map(m=>`<div class="msg ${m.role}">${esc(m.text)}</div>`).join("")||'<div class="muted">Try: “Show the critical path.”</div>'}</div>
+    <div class="row" style="margin-top:8px"><input id="q" placeholder="Ask the scheduling assistant…" style="flex:1" onkeydown="if(event.key==='Enter')sendAI()"><button class="btn" onclick="sendAI()">Send</button></div>`;
+}
+async function sendAI(){ const q=document.getElementById("q").value.trim(); if(!q)return;
+  chat.push({role:"user",text:q}); renderAI(document.getElementById("view"));
+  try{ const r=await api("POST","/api/ai/chat",{message:q}); chat.push({role:"ai",text:r.reply}); }
+  catch(e){ chat.push({role:"ai",text:String(e)}); } renderAI(document.getElementById("view")); }
+
+window.addEventListener("hashchange",()=>{ const t=decodeURIComponent(location.hash.slice(1)); if(TABS.includes(t)){current=t;renderNav();render();} });
+(async function init(){
+  const t=decodeURIComponent(location.hash.slice(1)); if(TABS.includes(t)) current=t;
+  renderNav();
+  try{ const h=await api("GET","/api/health"); document.getElementById("aifoot").textContent="AI: "+(h.ai_available?"Online":"Offline")+" · standalone"; }catch{}
+  render();
+})();
+</script>
+</body>
+</html>

@@ -58,7 +58,7 @@ def build_network(
                 "id": a.id,
                 "position": {"x": float(x), "y": float(y)},
                 "data": {
-                    "activityId": a.id,
+                    "activityId": a.code or a.id,
                     "name": a.name,
                     "duration": a.duration,
                     "discipline": a.discipline,

@@ -20,6 +20,7 @@ class ActivityNode:
     id: str
     name: str
     duration: int  # working days, >= 1
+    code: str = ""  # business activity id (e.g. "A-010"); falls back to id
     discipline: str = ""
     status: str = "Not Started"
     priority: int = 3
