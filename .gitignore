@@ -1,0 +1,36 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+
+# ---- Environment / secrets ----
+.env
+*.env
+!*.env.example
+
+# ---- Runtime data ----
+backend/data/
+
+# ---- Node / Electron ----
+node_modules/
+frontend/dist/
+frontend/dist-electron/
+frontend/release/
+.vite/
+npm-debug.log*
+yarn-error.log*
+
+# ---- OS / IDE ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
