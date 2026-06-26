@@ -1,0 +1,45 @@
+{
+  "_comment": "Global tuning + the three difficulty profiles. Edit freely; all values are read by lib/logic/difficulty.dart and the energy/aura systems. Times are in seconds, rates are per-second.",
+  "defaults": {
+    "maxEnergy": 100.0,
+    "maxAura": 100.0,
+    "startEnergy": 80.0,
+    "startAura": 0.0,
+    "player2UnlocksAfterLevel": 5
+  },
+  "difficulties": {
+    "casual": {
+      "label": "Casual",
+      "energyDrainPerSecond": 0.5,
+      "auraChargePerSecond": 28.0,
+      "auraCostPerCure": 25.0,
+      "auraCooldownSeconds": 1.0,
+      "enemyCountMultiplier": 0.6,
+      "enemySpeedMultiplier": 0.7,
+      "puzzlesSkippable": true,
+      "levelTimerSeconds": 0
+    },
+    "moderate": {
+      "label": "Moderate",
+      "energyDrainPerSecond": 1.0,
+      "auraChargePerSecond": 20.0,
+      "auraCostPerCure": 34.0,
+      "auraCooldownSeconds": 1.5,
+      "enemyCountMultiplier": 1.0,
+      "enemySpeedMultiplier": 1.0,
+      "puzzlesSkippable": false,
+      "levelTimerSeconds": 0
+    },
+    "hard": {
+      "label": "Hard",
+      "energyDrainPerSecond": 1.8,
+      "auraChargePerSecond": 15.0,
+      "auraCostPerCure": 42.0,
+      "auraCooldownSeconds": 2.5,
+      "enemyCountMultiplier": 1.4,
+      "enemySpeedMultiplier": 1.3,
+      "puzzlesSkippable": false,
+      "levelTimerSeconds": 180
+    }
+  }
+}

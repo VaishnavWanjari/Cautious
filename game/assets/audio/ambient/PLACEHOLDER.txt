@@ -1,0 +1,2 @@
+Drop .mp3 files here. Paths/keys are defined in assets/config/audio_map.json.
+This placeholder keeps the asset directory non-empty so the build is valid; it is harmless to ship.

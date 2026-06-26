@@ -1,0 +1,50 @@
+{
+  "_comment": "Food / energy items. 'effect' is one of: restoreEnergy | fullBoost | chill. Read by lib/logic/food.dart. 'energy' restores energy points; 'aura' adds aura points; 'fullBoost' maxes both; 'chill' resets the aura cooldown. 'sprite' and 'sfx' are slot paths (placeholders ok).",
+  "items": [
+    {
+      "id": "chai",
+      "label": "Chai",
+      "effect": "restoreEnergy",
+      "energy": 25.0,
+      "aura": 0.0,
+      "sprite": "assets/sprites/pickups/chai.png",
+      "sfx": "chai_sip"
+    },
+    {
+      "id": "sushi",
+      "label": "Sushi",
+      "effect": "restoreEnergy",
+      "energy": 20.0,
+      "aura": 5.0,
+      "sprite": "assets/sprites/pickups/sushi.png",
+      "sfx": "pickup"
+    },
+    {
+      "id": "maggi",
+      "label": "Maggi",
+      "effect": "restoreEnergy",
+      "energy": 30.0,
+      "aura": 0.0,
+      "sprite": "assets/sprites/pickups/maggi.png",
+      "sfx": "pickup"
+    },
+    {
+      "id": "bread_jam",
+      "label": "Bread Jam",
+      "effect": "fullBoost",
+      "energy": 100.0,
+      "aura": 100.0,
+      "sprite": "assets/sprites/pickups/bread_jam.png",
+      "sfx": "power_up"
+    },
+    {
+      "id": "vada_pav",
+      "label": "Vada Pav",
+      "effect": "chill",
+      "energy": 10.0,
+      "aura": 0.0,
+      "sprite": "assets/sprites/pickups/vada_pav.png",
+      "sfx": "chill"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+name: Game CI (Shefali)
+
+# Static QC for the Flutter + Flame game in game/. Runs on changes under game/**.
+on:
+  push:
+    paths:
+      - "game/**"
+      - ".github/workflows/game-ci.yml"
+  pull_request:
+    paths:
+      - "game/**"
+      - ".github/workflows/game-ci.yml"
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: game
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.27.x"
+      - run: flutter pub get
+      # Errors/warnings fail the build; style-only infos do not.
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test

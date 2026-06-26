@@ -1,0 +1,37 @@
+{
+  "_comment": "Tea Post level 2. Same schema as level_01.json.",
+  "id": "tea_post_2",
+  "index": 2,
+  "name": "Gali Ka Kachra",
+  "world": "tea_post",
+  "width": 2800,
+  "height": 720,
+  "gravity": 1400,
+  "weather": "wind",
+  "spawn": { "x": 120, "y": 520 },
+  "goal": { "x": 2680, "y": 470, "w": 80, "h": 150 },
+  "dialogueOnStart": "shefali_cure_all",
+  "platforms": [
+    { "x": 0, "y": 640, "w": 2800, "h": 80, "type": "ground" },
+    { "x": 320, "y": 540, "w": 160, "h": 24, "type": "platform" },
+    { "x": 560, "y": 440, "w": 160, "h": 24, "type": "platform" },
+    { "x": 860, "y": 360, "w": 160, "h": 24, "type": "platform" },
+    { "x": 1200, "y": 460, "w": 200, "h": 24, "type": "platform" },
+    { "x": 1560, "y": 380, "w": 160, "h": 24, "type": "platform" },
+    { "x": 1900, "y": 500, "w": 200, "h": 24, "type": "platform" },
+    { "x": 2300, "y": 440, "w": 180, "h": 24, "type": "platform" }
+  ],
+  "enemies": [
+    { "type": "litterer", "x": 700, "y": 580, "patrol": 180, "line": "enemy_environment", "dropsSeed": true },
+    { "type": "litterer", "x": 1500, "y": 580, "patrol": 200, "line": "enemy_plant", "dropsSeed": true }
+  ],
+  "pickups": [
+    { "kind": "food", "id": "maggi", "x": 380, "y": 490 },
+    { "kind": "seed", "x": 620, "y": 390 },
+    { "kind": "seed", "x": 920, "y": 310 },
+    { "kind": "food", "id": "sushi", "x": 1260, "y": 410 },
+    { "kind": "seed", "x": 1620, "y": 330 },
+    { "kind": "seed", "x": 1960, "y": 450 },
+    { "kind": "food", "id": "bread_jam", "x": 2360, "y": 390 }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "_comment": "Boss roster — one every 5 levels. Each boss is bad -> cured by aura -> becomes good -> Shefali cleans the mess (mini clean-up puzzle in Phase 2). Phase 1 ships the data only; boss fights are built in Phase 2. Rename/add freely; the engine reads bosses by 'level'.",
+  "bosses": [
+    { "level": 5,  "id": "hardik_jain",     "name": "Hardik Jain",     "type": "Litter Monster",  "gimmick": "throws dirt and papers",          "portrait": "assets/sprites/enemies/boss_hardik.png" },
+    { "level": 10, "id": "brijesh_trivedi", "name": "Brijesh Trivedi", "type": "Digital Monster",  "gimmick": "digital waste, scrap, oil spilling", "portrait": "assets/sprites/enemies/boss_brijesh.png" },
+    { "level": 15, "id": "prajwal",         "name": "Prajwal",         "type": "Environment Spoiler", "gimmick": "spreads pollution",             "portrait": "assets/sprites/enemies/boss_prajwal.png" },
+    { "level": 20, "id": "aman_chawda",     "name": "Aman Chawda",     "type": "Environment Spoiler", "gimmick": "spreads pollution",             "portrait": "assets/sprites/enemies/boss_aman.png" },
+    { "level": 25, "id": "raunak",          "name": "Raunak",          "type": "Environment Spoiler", "gimmick": "spreads pollution",             "portrait": "assets/sprites/enemies/boss_raunak.png" },
+    { "level": 30, "id": "bikram",          "name": "Bikram",          "type": "Environment Spoiler", "gimmick": "ex-boyfriend boss",             "portrait": "assets/sprites/enemies/boss_bikram.png" }
+  ]
+}

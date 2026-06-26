@@ -1,0 +1,21 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+*.iml
+
+# Generated platform projects (run `flutter create --platforms=android,ios .`)
+/android/
+/ios/
+/web/
+/linux/
+/macos/
+/windows/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store

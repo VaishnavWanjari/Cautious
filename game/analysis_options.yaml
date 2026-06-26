@@ -1,0 +1,10 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # Treat unused code/imports as errors so the static-only QC stays honest.
+    unused_import: error
+    unused_local_variable: error
+    dead_code: error
+  exclude:
+    - "**/*.g.dart"

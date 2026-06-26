@@ -1,0 +1,40 @@
+{
+  "_comment": "Single source of truth that binds logical audio keys to mp3 files. Drop your recordings at the listed paths and they play with NO code changes. A key whose file is missing is skipped gracefully (silent), so you can add clips incrementally. Paths are relative to the package root and are declared under flutter.assets in pubspec.yaml. Voice keys are referenced by dialogues.json ('voice'); ambient keys by world json ('ambient'); sfx keys by code/food/enemy events.",
+  "voice": {
+    "shefali_intro_1": "assets/audio/voice/shefali/intro_1.mp3",
+    "shefali_intro_2": "assets/audio/voice/shefali/intro_2.mp3",
+    "shefali_intro_3": "assets/audio/voice/shefali/intro_3.mp3",
+    "shefali_intro_level": "assets/audio/voice/shefali/intro_level.mp3",
+    "shefali_cure_all": "assets/audio/voice/shefali/cure_all.mp3",
+    "shefali_chai_baat": "assets/audio/voice/shefali/chai_baat.mp3",
+    "enemy_plastic": "assets/audio/voice/litterer/plastic.mp3",
+    "enemy_beach": "assets/audio/voice/litterer/beach.mp3",
+    "enemy_environment": "assets/audio/voice/litterer/environment.mp3",
+    "enemy_plant": "assets/audio/voice/litterer/plant.mp3",
+    "enemy_cured": "assets/audio/voice/litterer/cured.mp3",
+    "vaishnav_search": "assets/audio/voice/vaishnav/search.mp3"
+  },
+  "ambient": {
+    "ambient_tea_post": "assets/audio/ambient/tea_post.mp3",
+    "ambient_beach": "assets/audio/ambient/beach.mp3",
+    "ambient_office": "assets/audio/ambient/office.mp3",
+    "ambient_factory": "assets/audio/ambient/factory.mp3"
+  },
+  "sfx": {
+    "jump": "assets/audio/sfx/jump.mp3",
+    "yoga_jump": "assets/audio/sfx/yoga_jump.mp3",
+    "meditate": "assets/audio/sfx/meditate.mp3",
+    "aura_release": "assets/audio/sfx/aura_release.mp3",
+    "cure": "assets/audio/sfx/cure.mp3",
+    "pickup": "assets/audio/sfx/pickup.mp3",
+    "seed": "assets/audio/sfx/seed.mp3",
+    "chai_sip": "assets/audio/sfx/chai_sip.mp3",
+    "power_up": "assets/audio/sfx/power_up.mp3",
+    "chill": "assets/audio/sfx/chill.mp3",
+    "badge": "assets/audio/sfx/badge.mp3",
+    "menu_tap": "assets/audio/sfx/menu_tap.mp3"
+  },
+  "music": {
+    "menu_theme": "assets/audio/music/menu_theme.mp3"
+  }
+}

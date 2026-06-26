@@ -1,0 +1,31 @@
+{
+  "_comment": "LEVEL SCHEMA — see README 'Adding a level'. Coordinates are in world pixels, origin top-left, y grows downward (Flame default). 'platforms' are solid AABBs. 'enemies[].type' must be an implemented enemy (Phase 1: 'litterer'). 'enemies[].line' is a dialogues.json id. 'pickups[].kind' is 'seed' or 'food'; food needs an 'id' from food.json. 'weather' is none|rain|wind. 'goal' is the level-exit AABB.",
+  "id": "tea_post_1",
+  "index": 1,
+  "name": "Chai Pe Charcha",
+  "world": "tea_post",
+  "width": 2400,
+  "height": 720,
+  "gravity": 1400,
+  "weather": "none",
+  "spawn": { "x": 120, "y": 520 },
+  "goal": { "x": 2280, "y": 470, "w": 80, "h": 150 },
+  "dialogueOnStart": "shefali_intro_level",
+  "platforms": [
+    { "x": 0, "y": 640, "w": 2400, "h": 80, "type": "ground" },
+    { "x": 360, "y": 520, "w": 180, "h": 24, "type": "platform" },
+    { "x": 720, "y": 440, "w": 180, "h": 24, "type": "platform" },
+    { "x": 1080, "y": 520, "w": 180, "h": 24, "type": "platform" },
+    { "x": 1520, "y": 470, "w": 220, "h": 24, "type": "platform" }
+  ],
+  "enemies": [
+    { "type": "litterer", "x": 900, "y": 580, "patrol": 160, "line": "enemy_plastic", "dropsSeed": true }
+  ],
+  "pickups": [
+    { "kind": "food", "id": "chai", "x": 420, "y": 470 },
+    { "kind": "seed", "x": 780, "y": 390 },
+    { "kind": "seed", "x": 1140, "y": 470 },
+    { "kind": "food", "id": "vada_pav", "x": 1600, "y": 420 },
+    { "kind": "seed", "x": 2040, "y": 590 }
+  ]
+}

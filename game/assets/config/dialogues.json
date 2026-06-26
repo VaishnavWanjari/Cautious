@@ -1,0 +1,101 @@
+{
+  "_comment": "All in-game dialogue. Each entry: id, speaker, hindi text, optional 'voice' (a key in audio_map.json that resolves to an mp3), 'portrait' (sprite slot), and 'trigger' (intro|level_start|enemy|boss|ending|generic). Add lines freely — nothing here is hard-coded in engine code; levels/enemies reference lines by id.",
+  "lines": [
+    {
+      "id": "intro_1",
+      "speaker": "Shefali",
+      "text": "Yeh duniya ko saaf rakhna meri zimmedari hai.",
+      "voice": "shefali_intro_1",
+      "portrait": "assets/sprites/shefali/portrait.png",
+      "trigger": "intro"
+    },
+    {
+      "id": "intro_2",
+      "speaker": "Shefali",
+      "text": "Main logon ko maarungi nahi — meditation aur aura se theek karungi.",
+      "voice": "shefali_intro_2",
+      "portrait": "assets/sprites/shefali/portrait.png",
+      "trigger": "intro"
+    },
+    {
+      "id": "intro_3",
+      "speaker": "Shefali",
+      "text": "Chaliye, Tea Post se shuruaat karte hain. Prakriti ki rakshak — Shefali!",
+      "voice": "shefali_intro_3",
+      "portrait": "assets/sprites/shefali/portrait.png",
+      "trigger": "intro"
+    },
+    {
+      "id": "shefali_intro_level",
+      "speaker": "Shefali",
+      "text": "Yahan kitna kachra hai! Sab theek kar deti hoon.",
+      "voice": "shefali_intro_level",
+      "portrait": "assets/sprites/shefali/portrait.png",
+      "trigger": "level_start"
+    },
+    {
+      "id": "shefali_cure_all",
+      "speaker": "Shefali",
+      "text": "Sabko theek kar doongi!",
+      "voice": "shefali_cure_all",
+      "portrait": "assets/sprites/shefali/portrait.png",
+      "trigger": "level_start"
+    },
+    {
+      "id": "shefali_chai_baat",
+      "speaker": "Shefali",
+      "text": "Chai peeke baat karte hain.",
+      "voice": "shefali_chai_baat",
+      "portrait": "assets/sprites/shefali/portrait.png",
+      "trigger": "level_start"
+    },
+    {
+      "id": "enemy_plastic",
+      "speaker": "Litterer",
+      "text": "Main plastic everywhere phenk doonga!",
+      "voice": "enemy_plastic",
+      "portrait": "assets/sprites/enemies/litterer_portrait.png",
+      "trigger": "enemy"
+    },
+    {
+      "id": "enemy_beach",
+      "speaker": "Litterer",
+      "text": "Main beach pe pee karunga!",
+      "voice": "enemy_beach",
+      "portrait": "assets/sprites/enemies/litterer_portrait.png",
+      "trigger": "enemy"
+    },
+    {
+      "id": "enemy_environment",
+      "speaker": "Litterer",
+      "text": "Main saara environment kharab kar doonga!",
+      "voice": "enemy_environment",
+      "portrait": "assets/sprites/enemies/litterer_portrait.png",
+      "trigger": "enemy"
+    },
+    {
+      "id": "enemy_plant",
+      "speaker": "Litterer",
+      "text": "Main plant ko jeene nahi doonga!",
+      "voice": "enemy_plant",
+      "portrait": "assets/sprites/enemies/litterer_portrait.png",
+      "trigger": "enemy"
+    },
+    {
+      "id": "enemy_cured",
+      "speaker": "Litterer",
+      "text": "Aapne meri aankhein khol di... ab main bhi prakriti ki raksha karunga!",
+      "voice": "enemy_cured",
+      "portrait": "assets/sprites/enemies/litterer_good_portrait.png",
+      "trigger": "generic"
+    },
+    {
+      "id": "vaishnav_search",
+      "speaker": "Vaishnav",
+      "text": "Shefali kahan hai? Shefali kahan hai?",
+      "voice": "vaishnav_search",
+      "portrait": "assets/sprites/vaishnav/portrait.png",
+      "trigger": "generic"
+    }
+  ]
+}

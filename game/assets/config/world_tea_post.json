@@ -1,0 +1,10 @@
+{
+  "_comment": "World definition. 'ambient' is the audio_map key cross-faded by AmbientAudioController when a level in this world loads. 'skyTop'/'skyBottom' are hex colors for the placeholder backdrop gradient. Phase 2 adds the remaining worlds as sibling files.",
+  "id": "tea_post",
+  "label": "Tea Post",
+  "ambient": "ambient_tea_post",
+  "skyTop": "#FFE8B0",
+  "skyBottom": "#F5C16C",
+  "groundColor": "#7A5230",
+  "outfit": "default"
+}

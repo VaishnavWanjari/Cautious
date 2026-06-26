@@ -1,0 +1,2 @@
+Drop .png sprite/sheet files here to replace the programmatic placeholder art.
+See README "Replacing placeholder art" for the expected slots.
