@@ -1,0 +1,25 @@
+{
+  "_comment": "Higgsfield-generated assets fetched at BUILD TIME by tool/process_assets.py (the CI runner has open internet; this dev sandbox's egress blocks the CDN). 'key' flood-fills the white background to transparent; 'trim' crops to the subject; 'maxH' downscales. Targets map onto art_map.json slots, so they replace the vector art automatically. If a URL expires the build still succeeds and the game falls back to vector art.",
+  "assets": [
+    {
+      "target": "assets/sprites/env/bg_tea_post.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260626_194740_70d3944d-9f00-434e-8cdf-1fb3098407b2.png",
+      "key": false, "trim": false, "maxH": 1152
+    },
+    {
+      "target": "assets/sprites/enemies/litterer.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260626_195013_45c4b55b-145d-4de7-840e-6c0c5233afcb.png",
+      "key": true, "trim": true, "maxH": 640
+    },
+    {
+      "target": "assets/sprites/enemies/litterer_cured.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260626_195050_a41fb72d-95ce-4054-a850-ac8ccb0ea933.png",
+      "key": true, "trim": true, "maxH": 640
+    },
+    {
+      "target": "assets/sprites/npc/chai_uncle.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260626_195212_dcbb61a7-65fa-4108-a952-5f12e99951f9.png",
+      "key": true, "trim": true, "maxH": 640
+    }
+  ]
+}

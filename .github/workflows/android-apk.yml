@@ -39,6 +39,12 @@ jobs:
       - name: Fetch dependencies
         run: flutter pub get
 
+      - name: Fetch + process Higgsfield assets
+        continue-on-error: true
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check Pillow numpy
+          python3 tool/process_assets.py
+
       - name: Build debug APK
         run: flutter build apk --debug
 
