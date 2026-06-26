@@ -10,6 +10,7 @@ class DifficultyProfile {
     required this.label,
     required this.energyDrainPerSecond,
     required this.auraChargePerSecond,
+    required this.auraPassiveRegenPerSecond,
     required this.auraCostPerCure,
     required this.auraCooldownSeconds,
     required this.enemyCountMultiplier,
@@ -22,6 +23,10 @@ class DifficultyProfile {
   final String label;
   final double energyDrainPerSecond;
   final double auraChargePerSecond;
+
+  /// Aura that trickles back even when not meditating, so the meter is never
+  /// dead and the cure loop stays approachable.
+  final double auraPassiveRegenPerSecond;
   final double auraCostPerCure;
   final double auraCooldownSeconds;
   final double enemyCountMultiplier;
@@ -36,6 +41,7 @@ class DifficultyProfile {
       label: (j['label'] as String?) ?? id,
       energyDrainPerSecond: d('energyDrainPerSecond', 1.0),
       auraChargePerSecond: d('auraChargePerSecond', 20.0),
+      auraPassiveRegenPerSecond: d('auraPassiveRegenPerSecond', 4.0),
       auraCostPerCure: d('auraCostPerCure', 34.0),
       auraCooldownSeconds: d('auraCooldownSeconds', 1.5),
       enemyCountMultiplier: d('enemyCountMultiplier', 1.0),

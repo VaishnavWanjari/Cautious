@@ -28,9 +28,15 @@ flutter:
   assets:
     - assets/config/
     - assets/config/levels/
+    - assets/sprites/shefali/
+    - assets/sprites/enemies/
+    - assets/sprites/pickups/
+    - assets/sprites/env/
+    - assets/sprites/npc/
     - assets/audio/sfx/
     - assets/audio/ambient/
     - assets/audio/music/
     - assets/audio/voice/shefali/
     - assets/audio/voice/litterer/
     - assets/audio/voice/vaishnav/
+    - assets/audio/voice/chai_uncle/

@@ -23,6 +23,7 @@ class GameConfig {
     required this.secretReferences,
     required this.worlds,
     required this.levels,
+    required this.artMap,
   });
 
   final GameBalance balance;
@@ -33,6 +34,9 @@ class GameConfig {
   final List<SecretReference> secretReferences;
   final Map<String, WorldDef> worlds;
   final List<LevelModel> levels; // ordered by index
+
+  /// Art slot -> PNG path (see art_map.json + ArtRegistry).
+  final Map<String, String> artMap;
 
   WorldDef? world(String id) => worlds[id];
   LevelModel? levelByIndex(int index) {
@@ -93,6 +97,11 @@ class GameConfig {
     }
     levels.sort((a, b) => a.index.compareTo(b.index));
 
+    final artRaw = (await _loadObj('assets/config/art_map.json'))['slots'] as Map?;
+    final artMap = <String, String>{
+      for (final e in (artRaw ?? const {}).entries) e.key.toString(): e.value.toString(),
+    };
+
     return GameConfig(
       balance: balance,
       food: food,
@@ -102,6 +111,7 @@ class GameConfig {
       secretReferences: refs,
       worlds: worlds,
       levels: levels,
+      artMap: artMap,
     );
   }
 }

@@ -139,50 +139,107 @@ class Shefali extends PositionComponent with HasGameReference<ShefaliGame> {
   void render(Canvas canvas) {
     final w = size.x;
     final h = size.y;
-    final dir = facingRight ? 1.0 : -1.0;
-    final bob = onGround && horizontalInput != 0 ? (1.5 * (0.5 + 0.5 * math.sin(_animT * 12))) : 0.0;
 
-    // Meditation / cure aura glow.
+    // Aura glow (meditation charge + cure flash) — drawn in unflipped space.
     if (isMeditating || _cureFlash > 0) {
       final pulse = 0.5 + 0.5 * math.sin(_animT * 6);
-      final auraR = (_cureFlash > 0 ? 90.0 * (_cureFlash / 0.35) : 60.0 + pulse * 10);
-      final auraPaint = Paint()
-        ..color = (_cureFlash > 0 ? const Color(0xFF9C6BFF) : const Color(0xFF7E57C2))
-            .withValues(alpha: _cureFlash > 0 ? 0.45 : 0.25 + pulse * 0.15);
-      canvas.drawCircle(Offset(w / 2, h / 2), auraR, auraPaint);
+      final auraR = _cureFlash > 0 ? 95.0 * (_cureFlash / 0.35) : 56.0 + pulse * 10;
+      canvas.drawCircle(
+        Offset(w / 2, h / 2),
+        auraR,
+        Paint()
+          ..color = (_cureFlash > 0 ? const Color(0xFF9C6BFF) : const Color(0xFF7E57C2))
+              .withValues(alpha: _cureFlash > 0 ? 0.45 : 0.22 + pulse * 0.14),
+      );
     }
 
-    // Long hair (below waist) behind the body.
-    final hairPaint = Paint()..color = const Color(0xFF1B1B1B);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.18, h * 0.10, w * 0.64, h * 0.78),
-        const Radius.circular(10),
-      ),
-      hairPaint,
+    // Sprite override if supplied.
+    final slot = isMeditating
+        ? 'shefali_meditate'
+        : (onGround && horizontalInput != 0 ? 'shefali_run' : 'shefali_idle');
+    canvas.save();
+    canvas.translate(w / 2, 0);
+    if (!facingRight) canvas.scale(-1, 1);
+    canvas.translate(-w / 2, 0);
+    if (game.art.draw(canvas, slot, size)) {
+      canvas.restore();
+      return;
+    }
+    _renderVector(canvas, w, h);
+    canvas.restore();
+  }
+
+  void _renderVector(Canvas canvas, double w, double h) {
+    final bob = onGround && horizontalInput != 0 ? 1.5 * (0.5 + 0.5 * math.sin(_animT * 12)) : 0.0;
+    final stride = onGround && horizontalInput != 0 ? math.sin(_animT * 12) : 0.0;
+
+    const skin = Color(0xFFFFD9B0);
+    const hair = Color(0xFF161616);
+    const kurti = Color(0xFFB39DDB);
+    const kurtiDark = Color(0xFF9575CD);
+    const legging = Color(0xFF2B2B2B);
+    const shoe = Color(0xFFF5F5F5);
+
+    final headC = Offset(w / 2, h * 0.14 - bob);
+    final headR = w * 0.2;
+
+    // Long hair behind everything (flares below the waist).
+    final hairBack = Path()
+      ..moveTo(w * 0.28, h * 0.12)
+      ..quadraticBezierTo(w * 0.05, h * 0.5, w * 0.2, h * 0.82)
+      ..quadraticBezierTo(w * 0.5, h * 0.7, w * 0.8, h * 0.82)
+      ..quadraticBezierTo(w * 0.95, h * 0.5, w * 0.72, h * 0.12)
+      ..quadraticBezierTo(w * 0.5, h * 0.02, w * 0.28, h * 0.12)
+      ..close();
+    canvas.drawPath(hairBack, Paint()..color = hair);
+
+    if (isMeditating) {
+      // Cross-legged lap.
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.18, h * 0.74, w * 0.64, h * 0.2), const Radius.circular(14)),
+        Paint()..color = legging,
+      );
+    } else {
+      // Legs + shoes with a walking stride.
+      final lx = w * 0.34 + stride * 5;
+      final rx = w * 0.52 - stride * 5;
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(lx, h * 0.72, w * 0.14, h * 0.22), const Radius.circular(5)), Paint()..color = legging);
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(rx, h * 0.72, w * 0.14, h * 0.22), const Radius.circular(5)), Paint()..color = legging);
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(lx - 2, h * 0.93, w * 0.18, h * 0.06), const Radius.circular(4)), Paint()..color = shoe);
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(rx - 2, h * 0.93, w * 0.18, h * 0.06), const Radius.circular(4)), Paint()..color = shoe);
+    }
+
+    // Kurti (tunic) — flared, with a darker hem + side slit shading.
+    final kurtiPath = Path()
+      ..moveTo(w * 0.28, h * 0.34 - bob)
+      ..lineTo(w * 0.72, h * 0.34 - bob)
+      ..lineTo(w * 0.82, h * 0.72)
+      ..lineTo(w * 0.18, h * 0.72)
+      ..close();
+    canvas.drawPath(kurtiPath, Paint()..color = kurti);
+    canvas.drawRect(Rect.fromLTWH(w * 0.18, h * 0.68, w * 0.64, h * 0.05), Paint()..color = kurtiDark);
+    // Sleeves.
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.16, h * 0.36 - bob, w * 0.12, h * 0.2), const Radius.circular(6)), Paint()..color = kurtiDark);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.72, h * 0.36 - bob, w * 0.12, h * 0.2), const Radius.circular(6)), Paint()..color = kurtiDark);
+    // Hands.
+    canvas.drawCircle(Offset(w * 0.2, h * 0.56 - bob), w * 0.06, Paint()..color = skin);
+    canvas.drawCircle(Offset(w * 0.8, h * 0.56 - bob), w * 0.06, Paint()..color = skin);
+
+    // Neck + head.
+    canvas.drawRect(Rect.fromLTWH(w * 0.44, h * 0.26 - bob, w * 0.12, h * 0.06), Paint()..color = skin);
+    canvas.drawCircle(headC, headR, Paint()..color = skin);
+    // Hair top (fringe).
+    canvas.drawArc(Rect.fromCircle(center: headC, radius: headR + 1), math.pi, math.pi, true, Paint()..color = hair);
+    canvas.drawRect(Rect.fromLTWH(headC.dx - headR, headC.dy - 2, headR * 2, 4), Paint()..color = hair);
+    // Face: eyes, smile, bindi.
+    final eyeP = Paint()..color = const Color(0xFF3A2A20);
+    canvas.drawCircle(Offset(headC.dx - headR * 0.35, headC.dy), 2.4, eyeP);
+    canvas.drawCircle(Offset(headC.dx + headR * 0.35, headC.dy), 2.4, eyeP);
+    canvas.drawCircle(Offset(headC.dx, headC.dy - headR * 0.45), 2.0, Paint()..color = const Color(0xFFD81B60));
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset(headC.dx, headC.dy + headR * 0.3), radius: headR * 0.4),
+      0.15 * math.pi, 0.7 * math.pi, false,
+      Paint()..style = PaintingStyle.stroke..strokeWidth = 1.6..color = const Color(0xFF8D4A2F),
     );
-
-    // Body — lavender kurti (or coverall slot color via outfit later).
-    final bodyPaint = Paint()..color = const Color(0xFFB39DDB);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.22, h * 0.34 - bob, w * 0.56, h * 0.42),
-        const Radius.circular(8),
-      ),
-      bodyPaint,
-    );
-
-    // Legs — black jeans.
-    final legPaint = Paint()..color = const Color(0xFF263238);
-    canvas.drawRect(Rect.fromLTWH(w * 0.28, h * 0.72, w * 0.18, h * 0.26), legPaint);
-    canvas.drawRect(Rect.fromLTWH(w * 0.54, h * 0.72, w * 0.18, h * 0.26), legPaint);
-
-    // Head — fair skin.
-    final headPaint = Paint()..color = const Color(0xFFFFE0B2);
-    canvas.drawCircle(Offset(w / 2, h * 0.18 - bob), w * 0.22, headPaint);
-
-    // Facing hint (a little tilak/eye marker offset by direction).
-    final eyePaint = Paint()..color = const Color(0xFF4E342E);
-    canvas.drawCircle(Offset(w / 2 + dir * w * 0.08, h * 0.17 - bob), 2.2, eyePaint);
   }
 }

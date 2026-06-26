@@ -14,6 +14,8 @@ class HudState {
     required this.cooldown,
     required this.curedEnemies,
     required this.totalEnemies,
+    this.goal = '',
+    this.hint = '',
   });
 
   final double energy; // 0..1
@@ -25,6 +27,8 @@ class HudState {
   final double cooldown;
   final int curedEnemies;
   final int totalEnemies;
+  final String goal; // e.g. "Theek karo: 1/3"
+  final String hint; // transient coaching tip ("" = none)
 
   static const empty = HudState(
     energy: 1,

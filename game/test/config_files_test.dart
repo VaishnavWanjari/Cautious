@@ -48,6 +48,15 @@ void main() {
     }
   });
 
+  test('art_map.json has slot->path string entries', () {
+    final slots = (_obj('assets/config/art_map.json')['slots'] as Map).cast<String, dynamic>();
+    expect(slots, isNotEmpty);
+    for (final e in slots.entries) {
+      expect(e.value, isA<String>(), reason: 'art slot ${e.key} must map to a path string');
+      expect((e.value as String).trim(), isNotEmpty);
+    }
+  });
+
   test('secret_references.json parses', () {
     final refs = _arr('assets/config/secret_references.json')
         .map((e) => SecretReference.fromJson((e as Map).cast<String, dynamic>()))

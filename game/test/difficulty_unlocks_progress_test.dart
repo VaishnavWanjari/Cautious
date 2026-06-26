@@ -7,7 +7,8 @@ void main() {
   group('DifficultyProfile.scaledEnemyCount', () {
     const casual = DifficultyProfile(
       id: 'casual', label: 'Casual', energyDrainPerSecond: 0.5, auraChargePerSecond: 28,
-      auraCostPerCure: 25, auraCooldownSeconds: 1, enemyCountMultiplier: 0.6,
+      auraPassiveRegenPerSecond: 8, auraCostPerCure: 25, auraCooldownSeconds: 1,
+      enemyCountMultiplier: 0.6,
       enemySpeedMultiplier: 0.7, puzzlesSkippable: true, levelTimerSeconds: 0,
     );
     test('never drops below 1 when level has enemies', () {

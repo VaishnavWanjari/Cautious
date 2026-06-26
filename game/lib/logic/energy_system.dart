@@ -38,10 +38,14 @@ class EnergySystem {
     }
     // Passive energy drain.
     _energy = (_energy - difficulty.energyDrainPerSecond * dt).clamp(0.0, maxEnergy);
-    // Meditation charges aura while energy remains.
+
+    // Aura: a gentle passive trickle always, plus a strong boost while meditating
+    // (and energy remains). Keeps the cure loop approachable.
+    var auraGain = difficulty.auraPassiveRegenPerSecond;
     if (meditating && _energy > 0) {
-      _aura = (_aura + difficulty.auraChargePerSecond * dt).clamp(0.0, maxAura);
+      auraGain += difficulty.auraChargePerSecond;
     }
+    _aura = (_aura + auraGain * dt).clamp(0.0, maxAura);
   }
 
   /// Attempt to release an aura cure. Returns true if it fired (enough aura and

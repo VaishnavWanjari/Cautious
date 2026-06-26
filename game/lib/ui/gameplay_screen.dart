@@ -177,6 +177,30 @@ class _GameplayScreenState extends State<GameplayScreen> {
               ),
             ),
 
+          // Coaching hint banner (driven by HUD state).
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ValueListenableBuilder<HudState>(
+                valueListenable: game.hud,
+                builder: (context, hud, _) {
+                  if (hud.hint.isEmpty) return const SizedBox.shrink();
+                  return Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4A2E83).withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFCDDC39), width: 1.5),
+                    ),
+                    child: Text(hud.hint,
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                  );
+                },
+              ),
+            ),
+          ),
+
           if (_paused) _PauseOverlay(onResume: _togglePause, onMenu: () => Navigator.of(context).pop()),
           if (_result != null)
             _VictoryOverlay(

@@ -70,7 +70,7 @@ class TouchControls extends StatelessWidget {
                   const SizedBox(width: 12),
                   _TapButton(
                     icon: Icons.spa,
-                    label: 'Yoga',
+                    label: 'Yoga Jump',
                     color: const Color(0xFF26A69A),
                     onTap: game.yogaJump,
                   ),

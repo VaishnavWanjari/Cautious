@@ -11,7 +11,11 @@
     "enemy_beach": "assets/audio/voice/litterer/beach.mp3",
     "enemy_environment": "assets/audio/voice/litterer/environment.mp3",
     "enemy_plant": "assets/audio/voice/litterer/plant.mp3",
+    "enemy_funny_1": "assets/audio/voice/litterer/funny_1.mp3",
+    "enemy_funny_2": "assets/audio/voice/litterer/funny_2.mp3",
     "enemy_cured": "assets/audio/voice/litterer/cured.mp3",
+    "chai_uncle_welcome": "assets/audio/voice/chai_uncle/welcome.mp3",
+    "chai_uncle_tip": "assets/audio/voice/chai_uncle/tip.mp3",
     "vaishnav_search": "assets/audio/voice/vaishnav/search.mp3"
   },
   "ambient": {

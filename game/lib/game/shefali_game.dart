@@ -13,6 +13,7 @@ import '../logic/difficulty.dart';
 import '../logic/dialogue_model.dart';
 import '../logic/energy_system.dart';
 import '../logic/level_model.dart';
+import 'art/art_registry.dart';
 import 'audio/ambient_controller.dart';
 import 'audio/audio_manager.dart';
 import 'effects/effects.dart';
@@ -21,6 +22,7 @@ import 'hud/hud_state.dart';
 import 'pickups/pickups.dart';
 import 'platforms/platform_block.dart';
 import 'player/shefali.dart';
+import 'world/tree.dart';
 
 class ShefaliGame extends FlameGame {
   ShefaliGame({
@@ -53,6 +55,7 @@ class ShefaliGame extends FlameGame {
 
   late final Shefali player;
   late final EffectsManager effects;
+  late final ArtRegistry art;
 
   final List<Rect> platformRects = [];
   final List<Litterer> enemies = [];
@@ -67,7 +70,18 @@ class ShefaliGame extends FlameGame {
   double _enemyHitCooldown = 0;
   double _hudAccum = 0;
 
-  static const double auraCureRadius = 150;
+  // Timed coaching hints (level 1 only); each entry is (atSeconds, text).
+  final List<(double, String)> _hintSchedule = [];
+  String _hint = '';
+  double _elapsed = 0;
+  bool _flagNudgeShown = false;
+
+  static const double auraCureRadius = 165;
+
+  int get _totalEnemies => enemies.length;
+  bool get _allCured => enemies.every((e) => e.cured);
+  String get _goalText =>
+      _totalEnemies == 0 ? 'Flag tak pahuncho' : 'Sabko theek karo: $_curedCount/$_totalEnemies';
 
   @override
   Color backgroundColor() => const Color(0xFFFFE8B0);
@@ -76,11 +90,16 @@ class ShefaliGame extends FlameGame {
   Future<void> onLoad() async {
     final worldDef = config.world(level.world);
 
+    // Optional sprite art (vector fallback if PNGs absent).
+    art = ArtRegistry(config.artMap);
+    await art.preload();
+
     // Backdrop.
     world.add(_Backdrop(
       levelSize: Vector2(level.width, level.height),
       top: _hex(worldDef?.skyTop ?? '#FFE8B0'),
       bottom: _hex(worldDef?.skyBottom ?? '#F5C16C'),
+      background: art.sprite('bg_tea_post'),
     ));
 
     // Platforms (visual + collision rects).
@@ -151,6 +170,15 @@ class ShefaliGame extends FlameGame {
       onDialogue(startLine);
       audio.voice(startLine.voice);
     }
+
+    // Coaching hints on the first level so the cure loop is discoverable.
+    if (level.index == 1 && _totalEnemies > 0) {
+      _hintSchedule.addAll(const [
+        (1.5, 'Meditate (🧘) dabaye rakho — aura bharo'),
+        (6.0, 'Enemy ke paas jao, phir Cure (✨) dabao'),
+        (11.0, 'Sabko theek karke flag tak pahuncho 🌿'),
+      ]);
+    }
     _pushHud();
   }
 
@@ -158,6 +186,9 @@ class ShefaliGame extends FlameGame {
   void update(double dt) {
     super.update(dt);
     if (_finished) return;
+
+    _elapsed += dt;
+    _updateHints();
 
     energy.update(dt, meditating: player.isMeditating);
     if (_enemyHitCooldown > 0) _enemyHitCooldown -= dt;
@@ -207,6 +238,8 @@ class ShefaliGame extends FlameGame {
           _score += 50;
           audio.sfx('cure');
           effects.spawnSparkle(e.worldCenter);
+          // Plant a tree where the litterer stood — Shefali's clean-up.
+          world.add(PlantedTree(base: Vector2(e.position.x, e.position.y)));
           final cured = config.dialogues.byId('enemy_cured');
           if (cured != null) onDialogue(cured);
           if (e.dropsSeed) {
@@ -295,19 +328,61 @@ class ShefaliGame extends FlameGame {
   }
 
   void _checkGoal() {
-    if (player.aabb.overlaps(_goal.aabb)) {
-      _finished = true;
-      audio.sfx('badge');
-      onLevelComplete(LevelResult(
-        levelId: level.id,
-        levelIndex: level.index,
-        levelName: level.name,
-        seedsCollected: _seedsCollected,
-        seedsTotal: level.seedCount,
-        score: _score,
-        curedEnemies: _curedCount,
-      ));
+    if (!player.aabb.overlaps(_goal.aabb)) return;
+    if (!_allCured) {
+      // Must heal everyone first; nudge the player and keep playing.
+      if (!_flagNudgeShown) {
+        _flagNudgeShown = true;
+        _showHint('Pehle sabko theek karo! 🌿', 2.5);
+      }
+      return;
     }
+    _finished = true;
+    audio.sfx('badge');
+    onLevelComplete(LevelResult(
+      levelId: level.id,
+      levelIndex: level.index,
+      levelName: level.name,
+      seedsCollected: _seedsCollected,
+      seedsTotal: level.seedCount,
+      score: _score,
+      curedEnemies: _curedCount,
+    ));
+  }
+
+  // ---- Trash thrown by litterers ----
+
+  void spawnTrash(Vector2 from, double dir) {
+    world.add(TrashProjectile(from: from, dir: dir));
+  }
+
+  void onTrashHit(Vector2 at) {
+    if (_finished) return;
+    energy.addEnergy(-5);
+    effects.spawnDust(at);
+    haptic();
+    if (energy.isExhausted) {
+      _finished = true;
+      onGameOver();
+    }
+  }
+
+  // ---- Hints ----
+
+  void _updateHints() {
+    if (_hint.isNotEmpty && _elapsed >= _hintClearAt) _hint = '';
+    if (_hintSchedule.isEmpty) return;
+    final next = _hintSchedule.first;
+    if (_elapsed >= next.$1) {
+      _hintSchedule.removeAt(0);
+      _showHint(next.$2, 4.0);
+    }
+  }
+
+  double _hintClearAt = 0;
+  void _showHint(String text, double seconds) {
+    _hint = text;
+    _hintClearAt = _elapsed + seconds;
   }
 
   void _pushHud() {
@@ -321,6 +396,8 @@ class ShefaliGame extends FlameGame {
       cooldown: energy.cooldownRemaining,
       curedEnemies: _curedCount,
       totalEnemies: enemies.length,
+      goal: _goalText,
+      hint: _hint,
     );
   }
 
@@ -331,14 +408,22 @@ class ShefaliGame extends FlameGame {
   }
 }
 
-/// Simple gradient backdrop the size of the level.
+/// Gradient backdrop the size of the level, with simple vector scenery (hills +
+/// a tea-stall silhouette). If a 'bg_tea_post' sprite is supplied it is tiled
+/// across instead.
 class _Backdrop extends PositionComponent {
-  _Backdrop({required Vector2 levelSize, required this.top, required this.bottom}) {
+  _Backdrop({
+    required Vector2 levelSize,
+    required this.top,
+    required this.bottom,
+    this.background,
+  }) {
     size = levelSize;
     position = Vector2.zero();
   }
   final Color top;
   final Color bottom;
+  final Sprite? background;
 
   @override
   void render(Canvas canvas) {
@@ -351,7 +436,19 @@ class _Backdrop extends PositionComponent {
       ).createShader(rect);
     canvas.drawRect(rect, paint);
 
-    // A few distant clouds for parallax-free depth.
+    if (background != null) {
+      // Tile the supplied background image across the level width.
+      final imgW = background!.srcSize.x;
+      final imgH = background!.srcSize.y;
+      final scale = size.y / imgH;
+      final tileW = imgW * scale;
+      for (var x = 0.0; x < size.x; x += tileW) {
+        background!.render(canvas, position: Vector2(x, 0), size: Vector2(tileW, size.y));
+      }
+      return;
+    }
+
+    // Clouds.
     final cloud = Paint()..color = Colors.white.withValues(alpha: 0.5);
     for (var i = 0; i < (size.x / 600).ceil(); i++) {
       final cx = 200.0 + i * 600;
@@ -359,5 +456,22 @@ class _Backdrop extends PositionComponent {
       canvas.drawCircle(Offset(cx + 40, 120), 28, cloud);
       canvas.drawCircle(Offset(cx - 40, 122), 26, cloud);
     }
+
+    // Rolling hills (two parallax-free bands).
+    final hillBack = Paint()..color = const Color(0xFF8D6E63).withValues(alpha: 0.35);
+    final hillFront = Paint()..color = const Color(0xFF6D8B3C).withValues(alpha: 0.4);
+    final ground = size.y - 80;
+    final pathBack = Path()..moveTo(0, ground);
+    for (var x = 0.0; x <= size.x; x += 300) {
+      pathBack.quadraticBezierTo(x + 150, ground - 90, x + 300, ground);
+    }
+    pathBack..lineTo(size.x, size.y)..lineTo(0, size.y)..close();
+    canvas.drawPath(pathBack, hillBack);
+    final pathFront = Path()..moveTo(0, ground + 20);
+    for (var x = 0.0; x <= size.x; x += 420) {
+      pathFront.quadraticBezierTo(x + 210, ground - 40, x + 420, ground + 20);
+    }
+    pathFront..lineTo(size.x, size.y)..lineTo(0, size.y)..close();
+    canvas.drawPath(pathFront, hillFront);
   }
 }

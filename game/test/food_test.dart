@@ -8,6 +8,7 @@ DifficultyProfile _profile() => const DifficultyProfile(
       label: 'Test',
       energyDrainPerSecond: 1.0,
       auraChargePerSecond: 20.0,
+      auraPassiveRegenPerSecond: 0.0,
       auraCostPerCure: 30.0,
       auraCooldownSeconds: 1.5,
       enemyCountMultiplier: 1.0,

@@ -1,10 +1,10 @@
 {
-  "_comment": "All in-game dialogue. Each entry: id, speaker, hindi text, optional 'voice' (a key in audio_map.json that resolves to an mp3), 'portrait' (sprite slot), and 'trigger' (intro|level_start|enemy|boss|ending|generic). Add lines freely — nothing here is hard-coded in engine code; levels/enemies reference lines by id.",
+  "_comment": "All in-game dialogue. Each entry: id, speaker, hindi text, optional 'voice' (a key in audio_map.json that resolves to an mp3), 'portrait' (sprite slot), and 'trigger' (intro|level_start|enemy|boss|ending|generic). Tone: warm and funny. Add lines freely; nothing here is hard-coded in engine code.",
   "lines": [
     {
       "id": "intro_1",
       "speaker": "Shefali",
-      "text": "Yeh duniya ko saaf rakhna meri zimmedari hai.",
+      "text": "Yeh duniya ko saaf rakhna meri zimmedari hai — aur thodi si meri hobby bhi!",
       "voice": "shefali_intro_1",
       "portrait": "assets/sprites/shefali/portrait.png",
       "trigger": "intro"
@@ -12,7 +12,7 @@
     {
       "id": "intro_2",
       "speaker": "Shefali",
-      "text": "Main logon ko maarungi nahi — meditation aur aura se theek karungi.",
+      "text": "Main kisi ko maarungi nahi... bas meditation aur aura se inka dimaag theek karungi!",
       "voice": "shefali_intro_2",
       "portrait": "assets/sprites/shefali/portrait.png",
       "trigger": "intro"
@@ -20,7 +20,7 @@
     {
       "id": "intro_3",
       "speaker": "Shefali",
-      "text": "Chaliye, Tea Post se shuruaat karte hain. Prakriti ki rakshak — Shefali!",
+      "text": "Chalo Tea Post se shuru karte hain — pehle safai, phir kadak chai!",
       "voice": "shefali_intro_3",
       "portrait": "assets/sprites/shefali/portrait.png",
       "trigger": "intro"
@@ -28,7 +28,7 @@
     {
       "id": "shefali_intro_level",
       "speaker": "Shefali",
-      "text": "Yahan kitna kachra hai! Sab theek kar deti hoon.",
+      "text": "Haye Ram, itna kachra! Lagta hai aaj overtime hai.",
       "voice": "shefali_intro_level",
       "portrait": "assets/sprites/shefali/portrait.png",
       "trigger": "level_start"
@@ -36,7 +36,7 @@
     {
       "id": "shefali_cure_all",
       "speaker": "Shefali",
-      "text": "Sabko theek kar doongi!",
+      "text": "Sabko theek kar doongi — ek bhi gandagi-wala nahi bachega!",
       "voice": "shefali_cure_all",
       "portrait": "assets/sprites/shefali/portrait.png",
       "trigger": "level_start"
@@ -44,7 +44,7 @@
     {
       "id": "shefali_chai_baat",
       "speaker": "Shefali",
-      "text": "Chai peeke baat karte hain.",
+      "text": "Baarish mein safai? Challenge accepted. Chai peeke baat karte hain!",
       "voice": "shefali_chai_baat",
       "portrait": "assets/sprites/shefali/portrait.png",
       "trigger": "level_start"
@@ -52,7 +52,7 @@
     {
       "id": "enemy_plastic",
       "speaker": "Litterer",
-      "text": "Main plastic everywhere phenk doonga!",
+      "text": "Plastic toh mera sachcha pyaar hai — har gali mein bikheraunga, aaha!",
       "voice": "enemy_plastic",
       "portrait": "assets/sprites/enemies/litterer_portrait.png",
       "trigger": "enemy"
@@ -60,7 +60,7 @@
     {
       "id": "enemy_beach",
       "speaker": "Litterer",
-      "text": "Main beach pe pee karunga!",
+      "text": "Beach toh meri personal bathroom hai, beta!",
       "voice": "enemy_beach",
       "portrait": "assets/sprites/enemies/litterer_portrait.png",
       "trigger": "enemy"
@@ -68,7 +68,7 @@
     {
       "id": "enemy_environment",
       "speaker": "Litterer",
-      "text": "Main saara environment kharab kar doonga!",
+      "text": "Main paryavaran ka Villain No.1 — pollution ka baadshah, haha!",
       "voice": "enemy_environment",
       "portrait": "assets/sprites/enemies/litterer_portrait.png",
       "trigger": "enemy"
@@ -76,23 +76,55 @@
     {
       "id": "enemy_plant",
       "speaker": "Litterer",
-      "text": "Main plant ko jeene nahi doonga!",
+      "text": "Paudhe? Ukhaad ke unki chai bana ke pee jaunga!",
       "voice": "enemy_plant",
       "portrait": "assets/sprites/enemies/litterer_portrait.png",
       "trigger": "enemy"
     },
     {
-      "id": "enemy_cured",
+      "id": "enemy_funny_1",
       "speaker": "Litterer",
-      "text": "Aapne meri aankhein khol di... ab main bhi prakriti ki raksha karunga!",
+      "text": "Dustbin? Wo kaunsi nayi dish hai? Kabhi suna nahi!",
+      "voice": "enemy_funny_1",
+      "portrait": "assets/sprites/enemies/litterer_portrait.png",
+      "trigger": "enemy"
+    },
+    {
+      "id": "enemy_funny_2",
+      "speaker": "Litterer",
+      "text": "Recycle? Bhai main toh cycle bhi nahi chalata!",
+      "voice": "enemy_funny_2",
+      "portrait": "assets/sprites/enemies/litterer_portrait.png",
+      "trigger": "enemy"
+    },
+    {
+      "id": "enemy_cured",
+      "speaker": "Naya Dost",
+      "text": "Arre... ab dimaag ki batti jali! Sorry beta, ab se main bhi tree-planter!",
       "voice": "enemy_cured",
       "portrait": "assets/sprites/enemies/litterer_good_portrait.png",
       "trigger": "generic"
     },
     {
+      "id": "chai_uncle_welcome",
+      "speaker": "Chai Uncle",
+      "text": "Aao beti, ek kadak chai pee lo — energy full, tension null!",
+      "voice": "chai_uncle_welcome",
+      "portrait": "assets/sprites/npc/chai_uncle.png",
+      "trigger": "generic"
+    },
+    {
+      "id": "chai_uncle_tip",
+      "speaker": "Chai Uncle",
+      "text": "Pehle safai, phir chai — yeh Tea Post ka pukka niyam hai!",
+      "voice": "chai_uncle_tip",
+      "portrait": "assets/sprites/npc/chai_uncle.png",
+      "trigger": "generic"
+    },
+    {
       "id": "vaishnav_search",
       "speaker": "Vaishnav",
-      "text": "Shefali kahan hai? Shefali kahan hai?",
+      "text": "Shefali kahan hai? Shefali kahan hai? Aji sunte ho!",
       "voice": "vaishnav_search",
       "portrait": "assets/sprites/vaishnav/portrait.png",
       "trigger": "generic"

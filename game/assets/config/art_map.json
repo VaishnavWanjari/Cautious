@@ -1,0 +1,19 @@
+{
+  "_comment": "Drop-in sprite slots. Each key maps to a PNG path; if the file exists it REPLACES the hand-drawn vector art for that thing with no code change (see lib/game/art/art_registry.dart). Leave a path in place and just add the file. Recommended: transparent PNGs. Suggested sizes — characters ~256x512, item icons ~128x128, tree ~256x256, backgrounds ~1024x576 (tiled/stretched). Paths must live under a folder declared in pubspec.yaml flutter.assets.",
+  "slots": {
+    "shefali_idle": "assets/sprites/shefali/idle.png",
+    "shefali_run": "assets/sprites/shefali/run.png",
+    "shefali_meditate": "assets/sprites/shefali/meditate.png",
+    "litterer": "assets/sprites/enemies/litterer.png",
+    "litterer_cured": "assets/sprites/enemies/litterer_cured.png",
+    "tree": "assets/sprites/env/tree.png",
+    "goal_flag": "assets/sprites/env/goal_flag.png",
+    "bg_tea_post": "assets/sprites/env/bg_tea_post.png",
+    "chai": "assets/sprites/pickups/chai.png",
+    "sushi": "assets/sprites/pickups/sushi.png",
+    "maggi": "assets/sprites/pickups/maggi.png",
+    "bread_jam": "assets/sprites/pickups/bread_jam.png",
+    "vada_pav": "assets/sprites/pickups/vada_pav.png",
+    "magaj_seed": "assets/sprites/pickups/magaj_seed.png"
+  }
+}

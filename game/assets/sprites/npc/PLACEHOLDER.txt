@@ -1,0 +1,1 @@
+Drop NPC sprite pngs here (e.g. chai_uncle.png).

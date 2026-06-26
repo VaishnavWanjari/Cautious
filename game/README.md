@@ -110,12 +110,17 @@ this file (schema is documented in its top comment).
 difficulty profiles (energy drain, aura charge/cost/cooldown, enemy
 count/speed multipliers, timers).
 
-### Replacing placeholder art
-Drop PNGs into `assets/sprites/<group>/` (slots: `shefali/`, `enemies/`,
-`pickups/`, `env/`). The placeholder slots referenced by config are listed in
-`food.json` (`sprite`), `dialogues.json` (`portrait`) and `bosses.json`
-(`portrait`). Wiring sprite rendering into the Flame components is a small,
-localized change in `lib/game/.../*.dart` (each component's `render`).
+### Replacing placeholder art (drop-in, no code change)
+The game ships hand-drawn **vector** art. To reach the illustrated/reference look,
+drop transparent PNGs at the paths listed in **`assets/config/art_map.json`** —
+each filled slot automatically **replaces** the vector art for that thing
+(`ArtRegistry` in `lib/game/art/art_registry.dart`). Slots include
+`shefali_idle/run/meditate`, `litterer`, `litterer_cured`, `tree`, `bg_tea_post`
+and item icons `chai`, `bread_jam`, `magaj_seed`, `vada_pav`, `maggi`, `sushi`.
+Suggested sizes: characters ~256×512, item icons ~128×128, tree ~256×256,
+background ~1024×576. A missing slot just keeps the vector fallback, so you can
+add art incrementally. New folders must also be added under `flutter.assets` in
+`pubspec.yaml`.
 
 ---
 
