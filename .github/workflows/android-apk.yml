@@ -1,0 +1,51 @@
+name: Android beta APK (Shefali)
+
+# Builds an installable DEBUG apk for the game and uploads it as a downloadable
+# artifact. Runs on demand and on pushes that touch the game.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "claude/prakriti-ki-rakshak-shefali-b4izea"
+    paths:
+      - "game/**"
+      - ".github/workflows/android-apk.yml"
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: game
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17 (required by Android Gradle Plugin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.27.x"
+          cache: true
+
+      - name: Generate Android project
+        run: flutter create --platforms=android --org com.prakriti.shefali .
+
+      - name: Fetch dependencies
+        run: flutter pub get
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shefali-beta-apk
+          path: game/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
