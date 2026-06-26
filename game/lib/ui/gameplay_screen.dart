@@ -233,15 +233,45 @@ class _DialogueBubble extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFF7E57C2), width: 1.5),
       ),
-      child: Column(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(line.speaker,
-              style: const TextStyle(color: Color(0xFFCDDC39), fontWeight: FontWeight.bold, fontSize: 13)),
-          const SizedBox(height: 2),
-          Text(line.text,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 15)),
+          Container(
+            width: 44,
+            height: 44,
+            margin: const EdgeInsets.only(right: 10),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF4A2E83),
+              border: Border.all(color: const Color(0xFFCDDC39), width: 1.5),
+            ),
+            child: ClipOval(
+              child: Image.asset(
+                line.portrait,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+                errorBuilder: (_, __, ___) => Center(
+                  child: Text(
+                    line.speaker.isNotEmpty ? line.speaker[0] : '?',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(line.speaker,
+                    style: const TextStyle(color: Color(0xFFCDDC39), fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 2),
+                Text(line.text, style: const TextStyle(color: Colors.white, fontSize: 15)),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -304,8 +334,25 @@ class _VictoryOverlay extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('🏅', style: TextStyle(fontSize: 64)),
-          const Text('Shabaash!', style: TextStyle(color: Color(0xFFCDDC39), fontSize: 32, fontWeight: FontWeight.bold)),
+          Container(
+            width: 90,
+            height: 90,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF4A2E83),
+              border: Border.all(color: const Color(0xFFCDDC39), width: 3),
+            ),
+            child: ClipOval(
+              child: Image.asset(
+                'assets/sprites/shefali/happy.png',
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+                errorBuilder: (_, __, ___) => const Center(child: Text('🏅', style: TextStyle(fontSize: 48))),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text('Shabaash! 🏅', style: TextStyle(color: Color(0xFFCDDC39), fontSize: 32, fontWeight: FontWeight.bold)),
           Text(result.levelName, style: const TextStyle(color: Colors.white70, fontSize: 16)),
           const SizedBox(height: 8),
           Text('Appreciation Badge earned', style: const TextStyle(color: Colors.white, fontSize: 14)),

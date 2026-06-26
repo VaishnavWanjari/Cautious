@@ -6,7 +6,7 @@
       "speaker": "Shefali",
       "text": "Yeh duniya ko saaf rakhna meri zimmedari hai — aur thodi si meri hobby bhi!",
       "voice": "shefali_intro_1",
-      "portrait": "assets/sprites/shefali/portrait.png",
+      "portrait": "assets/sprites/shefali/determined.png",
       "trigger": "intro"
     },
     {
@@ -14,7 +14,7 @@
       "speaker": "Shefali",
       "text": "Main kisi ko maarungi nahi... bas meditation aur aura se inka dimaag theek karungi!",
       "voice": "shefali_intro_2",
-      "portrait": "assets/sprites/shefali/portrait.png",
+      "portrait": "assets/sprites/shefali/determined.png",
       "trigger": "intro"
     },
     {
@@ -22,7 +22,7 @@
       "speaker": "Shefali",
       "text": "Chalo Tea Post se shuru karte hain — pehle safai, phir kadak chai!",
       "voice": "shefali_intro_3",
-      "portrait": "assets/sprites/shefali/portrait.png",
+      "portrait": "assets/sprites/shefali/determined.png",
       "trigger": "intro"
     },
     {
@@ -30,7 +30,7 @@
       "speaker": "Shefali",
       "text": "Haye Ram, itna kachra! Lagta hai aaj overtime hai.",
       "voice": "shefali_intro_level",
-      "portrait": "assets/sprites/shefali/portrait.png",
+      "portrait": "assets/sprites/shefali/determined.png",
       "trigger": "level_start"
     },
     {
@@ -38,7 +38,7 @@
       "speaker": "Shefali",
       "text": "Sabko theek kar doongi — ek bhi gandagi-wala nahi bachega!",
       "voice": "shefali_cure_all",
-      "portrait": "assets/sprites/shefali/portrait.png",
+      "portrait": "assets/sprites/shefali/determined.png",
       "trigger": "level_start"
     },
     {
@@ -46,7 +46,7 @@
       "speaker": "Shefali",
       "text": "Baarish mein safai? Challenge accepted. Chai peeke baat karte hain!",
       "voice": "shefali_chai_baat",
-      "portrait": "assets/sprites/shefali/portrait.png",
+      "portrait": "assets/sprites/shefali/determined.png",
       "trigger": "level_start"
     },
     {
