@@ -1,0 +1,14 @@
+{
+  "_comment": "Inventory item database across tabs (food | tool | seed | badge | quest | collectible). Food items also exist in food.json for in-level pickups; here they carry inventory metadata (icon, rarity, description). 'icon' is a sprite slot id (from art_map) or emoji.",
+  "items": [
+    { "id": "chai",        "tab": "food",  "name": "Chai",        "rarity": "common", "icon": "chai",        "desc": "Garam chai — energy + meditation boost" },
+    { "id": "sushi",       "tab": "food",  "name": "Sushi",       "rarity": "common", "icon": "sushi",       "desc": "Agility + better jump" },
+    { "id": "maggi",       "tab": "food",  "name": "Maggi",       "rarity": "common", "icon": "maggi",       "desc": "Quick energy" },
+    { "id": "bread_jam",   "tab": "food",  "name": "Bread Jam",   "rarity": "rare",   "icon": "bread_jam",   "desc": "Full energy + temporary shield" },
+    { "id": "vada_pav",    "tab": "food",  "name": "Vada Pav",    "rarity": "common", "icon": "vada_pav",    "desc": "Mood boost — enemies calm faster" },
+    { "id": "wrench",      "tab": "tool",  "name": "Engineering Toolkit", "rarity": "rare", "icon": "🔧", "desc": "Repair pipes, pumps and valves" },
+    { "id": "seed_neem",   "tab": "seed",  "name": "Neem Seed",   "rarity": "common", "icon": "🌰",          "desc": "Plant a Neem tree" },
+    { "id": "magaj_seed",  "tab": "collectible", "name": "Magaj Seed", "rarity": "rare", "icon": "magaj_seed", "desc": "Hidden collectible" },
+    { "id": "tree_saver",  "tab": "badge", "name": "Tree Saver Badge", "rarity": "rare", "icon": "🏅", "desc": "Awarded for planting trees" }
+  ]
+}

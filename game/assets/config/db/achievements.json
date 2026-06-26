@@ -1,0 +1,11 @@
+{
+  "_comment": "Achievement database. 'condition' is descriptive; the game unlocks by id when the matching event fires (e.g. plant a tree -> tree_saver). 'icon' is an emoji or sprite slot.",
+  "achievements": [
+    { "id": "first_tree",     "name": "Tree Saver",        "desc": "Apna pehla ped lagao",          "icon": "🌱", "reward": { "xp": 20 } },
+    { "id": "tea_lover",      "name": "Tea Lover",         "desc": "Chai Uncle se chai lo",         "icon": "🍵", "reward": { "xp": 15 } },
+    { "id": "nature_friend",  "name": "Nature Friend",     "desc": "Ek polluter ko theek karo",     "icon": "💚", "reward": { "xp": 25 } },
+    { "id": "puzzle_master",  "name": "Puzzle Master",     "desc": "Pehla engineering puzzle solve karo", "icon": "🧩", "reward": { "xp": 40 } },
+    { "id": "yoga_queen",     "name": "Yoga Queen",        "desc": "10 yoga jump karo",             "icon": "🧘", "reward": { "xp": 20 } },
+    { "id": "eco_warrior",    "name": "Eco Warrior",       "desc": "Ek level 100% complete karo",   "icon": "🏅", "reward": { "xp": 50 } }
+  ]
+}

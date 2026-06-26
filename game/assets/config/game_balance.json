@@ -7,6 +7,16 @@
     "startAura": 0.0,
     "player2UnlocksAfterLevel": 5
   },
+  "profile": {
+    "_comment": "Save-profile economy. Green Leaves = health; Green Energy = ability fuel. xpPerLevel is the curve base (level N needs N*xpPerLevel).",
+    "startMaxLeaves": 5,
+    "startLeaves": 5,
+    "startGreenEnergyCap": 100,
+    "xpPerLevel": 250,
+    "startCoins": 0,
+    "startGems": 0,
+    "defaultLanguage": "hi"
+  },
   "difficulties": {
     "casual": {
       "label": "Casual",

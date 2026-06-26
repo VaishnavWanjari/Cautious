@@ -1,0 +1,16 @@
+{
+  "_comment": "Quest database. A quest has ordered objectives, each with a type the gameplay reports progress for: heal | plant | talk | collect | reach. 'target' is the count or an id. Levels reference a quest by 'quest' id.",
+  "quests": [
+    {
+      "id": "q_tea_stall",
+      "titleKey": "quest_clean_tea",
+      "world": "tea_post",
+      "objectives": [
+        { "type": "heal",  "target": 1, "labelKey": "quest_obj_heal" },
+        { "type": "plant", "target": 1, "labelKey": "quest_obj_plant" },
+        { "type": "talk",  "target": "tea_uncle", "labelKey": "quest_obj_talk_uncle" }
+      ],
+      "rewards": { "xp": 120, "greenEnergy": 30, "naturePoints": 50, "coins": 100, "badge": "tree_saver" }
+    }
+  ]
+}

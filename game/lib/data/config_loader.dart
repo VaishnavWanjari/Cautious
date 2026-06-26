@@ -7,10 +7,13 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart' show rootBundle;
 
+import '../logic/databases.dart';
 import '../logic/difficulty.dart';
 import '../logic/dialogue_model.dart';
 import '../logic/food.dart';
 import '../logic/level_model.dart';
+import '../logic/localization.dart';
+import '../logic/progress.dart';
 
 /// Immutable bundle of all loaded game content.
 class GameConfig {
@@ -24,6 +27,9 @@ class GameConfig {
     required this.worlds,
     required this.levels,
     required this.artMap,
+    required this.databases,
+    required this.localization,
+    required this.profileDefaults,
   });
 
   final GameBalance balance;
@@ -37,6 +43,11 @@ class GameConfig {
 
   /// Art slot -> PNG path (see art_map.json + ArtRegistry).
   final Map<String, String> artMap;
+
+  /// Content databases (trees, enemies, NPCs, quests, achievements, items).
+  final GameDatabases databases;
+  final Localization localization;
+  final ProfileDefaults profileDefaults;
 
   WorldDef? world(String id) => worlds[id];
   LevelModel? levelByIndex(int index) {
@@ -70,7 +81,10 @@ class GameConfig {
 
   /// Load and parse all config. Call once at startup.
   static Future<GameConfig> load() async {
-    final balance = GameBalance.fromJson(await _loadObj('assets/config/game_balance.json'));
+    final balanceJson = await _loadObj('assets/config/game_balance.json');
+    final balance = GameBalance.fromJson(balanceJson);
+    final profileDefaults = ProfileDefaults.fromJson(
+        (balanceJson['profile'] as Map?)?.cast<String, dynamic>() ?? const {});
     final food = FoodCatalog.fromJson(await _loadObj('assets/config/food.json'));
     final dialogues = DialogueBook.fromJson(await _loadObj('assets/config/dialogues.json'));
     final audioMap = AudioMap.fromJson(await _loadObj('assets/config/audio_map.json'));
@@ -102,6 +116,24 @@ class GameConfig {
       for (final e in (artRaw ?? const {}).entries) e.key.toString(): e.value.toString(),
     };
 
+    final databases = GameDatabases.fromJson(
+      trees: await _loadObj('assets/config/db/trees.json'),
+      enemies: await _loadObj('assets/config/db/enemies.json'),
+      npcs: await _loadObj('assets/config/db/npcs.json'),
+      quests: await _loadObj('assets/config/db/quests.json'),
+      achievements: await _loadObj('assets/config/db/achievements.json'),
+      items: await _loadObj('assets/config/db/items.json'),
+    );
+
+    final localization = Localization.fromTables(
+      {
+        'hi': await _loadObj('assets/config/localization/hi.json'),
+        'en': await _loadObj('assets/config/localization/en.json'),
+      },
+      fallbackLang: 'hi',
+      active: profileDefaults.defaultLanguage,
+    );
+
     return GameConfig(
       balance: balance,
       food: food,
@@ -112,6 +144,9 @@ class GameConfig {
       worlds: worlds,
       levels: levels,
       artMap: artMap,
+      databases: databases,
+      localization: localization,
+      profileDefaults: profileDefaults,
     );
   }
 }

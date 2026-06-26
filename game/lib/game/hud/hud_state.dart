@@ -16,9 +16,15 @@ class HudState {
     required this.totalEnemies,
     this.goal = '',
     this.hint = '',
+    this.leaves = 5,
+    this.maxLeaves = 5,
+    this.level = 1,
+    this.xpFraction = 0,
+    this.coins = 0,
+    this.playerName = 'Shefali',
   });
 
-  final double energy; // 0..1
+  final double energy; // 0..1 — Green Energy (ability fuel)
   final double aura; // 0..1
   final int score;
   final int seedsCollected;
@@ -29,6 +35,14 @@ class HudState {
   final int totalEnemies;
   final String goal; // e.g. "Theek karo: 1/3"
   final String hint; // transient coaching tip ("" = none)
+
+  // Health + profile (mockup HUD).
+  final int leaves; // Green Leaves health (current)
+  final int maxLeaves;
+  final int level;
+  final double xpFraction; // 0..1 progress to next level
+  final int coins;
+  final String playerName;
 
   static const empty = HudState(
     energy: 1,

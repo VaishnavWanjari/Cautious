@@ -1,0 +1,23 @@
+{
+  "_comment": "Enemy database. Enemies are HEALED, not killed: each has a pollution meter that Shefali's aura lowers; at 0 it transforms into the NPC named by 'transformNpc' (or a generic friendly). 'taunts' are dialogue ids. 'speed' is px/s, scaled by difficulty.",
+  "enemies": [
+    {
+      "id": "plastic_thrower", "name": "Plastic Thrower", "pollution": 100, "healPerCure": 50,
+      "speed": 78, "throwsTrash": true, "behavior": "chase",
+      "taunts": ["enemy_plastic", "enemy_funny_1", "enemy_funny_2"],
+      "transformNpc": "friend_volunteer", "sprite": "litterer", "curedSprite": "litterer_cured"
+    },
+    {
+      "id": "garbage_monster", "name": "Garbage Monster", "pollution": 140, "healPerCure": 50,
+      "speed": 64, "throwsTrash": true, "behavior": "chase",
+      "taunts": ["enemy_environment", "enemy_plant"],
+      "transformNpc": "friend_volunteer", "sprite": "litterer", "curedSprite": "litterer_cured"
+    },
+    {
+      "id": "lazy_citizen", "name": "Lazy Citizen", "pollution": 80, "healPerCure": 50,
+      "speed": 40, "throwsTrash": false, "behavior": "patrol",
+      "taunts": ["enemy_funny_1"],
+      "transformNpc": "friend_volunteer", "sprite": "litterer", "curedSprite": "litterer_cured"
+    }
+  ]
+}

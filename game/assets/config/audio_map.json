@@ -16,6 +16,10 @@
     "enemy_cured": "assets/audio/voice/litterer/cured.mp3",
     "chai_uncle_welcome": "assets/audio/voice/chai_uncle/welcome.mp3",
     "chai_uncle_tip": "assets/audio/voice/chai_uncle/tip.mp3",
+    "girl_tree": "assets/audio/voice/npc/girl_tree.mp3",
+    "disha_hint": "assets/audio/voice/npc/disha_hint.mp3",
+    "sanket_eng": "assets/audio/voice/npc/sanket_eng.mp3",
+    "gullu_food": "assets/audio/voice/npc/gullu_food.mp3",
     "vaishnav_search": "assets/audio/voice/vaishnav/search.mp3"
   },
   "ambient": {

@@ -35,6 +35,10 @@ class ShefaliGame extends FlameGame {
     required this.onDialogue,
     required this.onLevelComplete,
     required this.onGameOver,
+    this.profileLevel = 1,
+    this.profileXpFraction = 0,
+    this.profileCoins = 0,
+    this.playerName = 'Shefali',
   })  : energy = EnergySystem(balance: config.balance, difficulty: difficulty),
         super();
 
@@ -45,6 +49,12 @@ class ShefaliGame extends FlameGame {
   final AudioManager audio;
   final AmbientAudioController ambient;
   final bool hapticsOn;
+
+  // Persistent profile snapshot for the HUD (static during a level).
+  final int profileLevel;
+  final double profileXpFraction;
+  final int profileCoins;
+  final String playerName;
 
   /// Fired when an enemy speaks / on level-start line. UI shows a dialogue bubble.
   final void Function(DialogueLine line) onDialogue;
@@ -70,6 +80,11 @@ class ShefaliGame extends FlameGame {
   double _enemyHitCooldown = 0;
   double _hudAccum = 0;
 
+  // Green-Leaf health (the health system). Set in onLoad from profile defaults.
+  late int _leaves;
+  late int _maxLeaves;
+  double _iFrames = 0;
+
   // Timed coaching hints (level 1 only); each entry is (atSeconds, text).
   final List<(double, String)> _hintSchedule = [];
   String _hint = '';
@@ -89,6 +104,10 @@ class ShefaliGame extends FlameGame {
   @override
   Future<void> onLoad() async {
     final worldDef = config.world(level.world);
+
+    // Green-Leaf health from profile defaults.
+    _maxLeaves = config.profileDefaults.startMaxLeaves;
+    _leaves = config.profileDefaults.startLeaves.clamp(1, _maxLeaves);
 
     // Optional sprite art (vector fallback if PNGs absent).
     art = ArtRegistry(config.artMap);
@@ -192,17 +211,12 @@ class ShefaliGame extends FlameGame {
 
     energy.update(dt, meditating: player.isMeditating);
     if (_enemyHitCooldown > 0) _enemyHitCooldown -= dt;
+    if (_iFrames > 0) _iFrames -= dt;
 
     _checkSeeds();
     _checkFoods();
     _checkEnemyContact();
     _checkGoal();
-
-    if (energy.isExhausted) {
-      _finished = true;
-      onGameOver();
-      return;
-    }
 
     // Throttle HUD updates to ~30 Hz to limit widget rebuilds.
     _hudAccum += dt;
@@ -263,15 +277,10 @@ class ShefaliGame extends FlameGame {
 
   void onPlayerFell() {
     if (_finished) return;
-    // Falling off the world costs energy and respawns at the level spawn.
-    energy.addEnergy(-25);
+    // Falling off the world costs a leaf and respawns at the level spawn.
     player.position = Vector2(level.spawn.x, level.spawn.y);
     player.velocity.setZero();
-    haptic();
-    if (energy.isExhausted) {
-      _finished = true;
-      onGameOver();
-    }
+    _damage(1);
   }
 
   void haptic() {
@@ -315,13 +324,12 @@ class ShefaliGame extends FlameGame {
     final pr = player.aabb;
     for (final e in enemies) {
       if (!e.cured && pr.overlaps(e.aabb)) {
-        // Not killed — touching an uncured litterer saps energy and nudges back.
-        energy.addEnergy(-8);
+        // Not killed — touching an uncured polluter costs a leaf and nudges back.
         _enemyHitCooldown = 0.8;
         final dir = player.worldCenter.x >= e.worldCenter.x ? 1.0 : -1.0;
         player.position.x += dir * 24;
         effects.spawnDust(player.worldCenter);
-        haptic();
+        _damage(1);
         break;
       }
     }
@@ -358,10 +366,19 @@ class ShefaliGame extends FlameGame {
 
   void onTrashHit(Vector2 at) {
     if (_finished) return;
-    energy.addEnergy(-5);
     effects.spawnDust(at);
+    _damage(1);
+  }
+
+  /// Lose a Green Leaf (health). i-frames prevent rapid multi-hits. At 0 leaves
+  /// the level is lost.
+  void _damage(int leaves) {
+    if (_iFrames > 0 || _finished) return;
+    _leaves = (_leaves - leaves).clamp(0, _maxLeaves);
+    _iFrames = 1.0;
     haptic();
-    if (energy.isExhausted) {
+    _pushHud();
+    if (_leaves <= 0) {
       _finished = true;
       onGameOver();
     }
@@ -398,6 +415,12 @@ class ShefaliGame extends FlameGame {
       totalEnemies: enemies.length,
       goal: _goalText,
       hint: _hint,
+      leaves: _leaves,
+      maxLeaves: _maxLeaves,
+      level: profileLevel,
+      xpFraction: profileXpFraction,
+      coins: profileCoins,
+      playerName: playerName,
     );
   }
 

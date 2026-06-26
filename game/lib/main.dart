@@ -23,7 +23,7 @@ Future<void> main() async {
 
   final config = await GameConfig.load();
   final store = await PrefsStore.create();
-  final progress = PlayerProgress(store);
+  final progress = PlayerProgress(store, defaults: config.profileDefaults);
 
   final audio = AudioManager(config.audioMap)..setSoundOn(progress.soundOn);
   final ambient = AmbientAudioController(config.audioMap)..setSoundOn(progress.soundOn);

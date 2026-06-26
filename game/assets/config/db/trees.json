@@ -1,0 +1,14 @@
+{
+  "_comment": "Tree database. Add species freely; engine reads by id. growthSeconds = pop-in time, benefit = flavor text, unlockLevel = level after which it's plantable.",
+  "trees": [
+    { "id": "neem",        "name": "Neem",        "sci": "Azadirachta indica", "growthSeconds": 0.6, "benefit": "Air purifier", "unlockLevel": 1, "sprite": "assets/sprites/env/tree.png" },
+    { "id": "peepal",      "name": "Peepal",      "sci": "Ficus religiosa",    "growthSeconds": 0.7, "benefit": "Oxygen booster", "unlockLevel": 11, "sprite": "assets/sprites/env/tree_peepal.png" },
+    { "id": "banyan",      "name": "Banyan",      "sci": "Ficus benghalensis", "growthSeconds": 0.8, "benefit": "Shade + shelter", "unlockLevel": 12, "sprite": "assets/sprites/env/tree_banyan.png" },
+    { "id": "coconut",     "name": "Coconut",     "sci": "Cocos nucifera",     "growthSeconds": 0.7, "benefit": "Coastal protector", "unlockLevel": 16, "sprite": "assets/sprites/env/tree_coconut.png" },
+    { "id": "mangrove",    "name": "Mangrove",    "sci": "Rhizophora",         "growthSeconds": 0.7, "benefit": "Shoreline guardian", "unlockLevel": 17, "sprite": "assets/sprites/env/tree_mangrove.png" },
+    { "id": "oak",         "name": "Oak",         "sci": "Quercus",            "growthSeconds": 0.8, "benefit": "Hardy highland tree", "unlockLevel": 21, "sprite": "assets/sprites/env/tree_oak.png" },
+    { "id": "pine",        "name": "Pine",        "sci": "Pinus",              "growthSeconds": 0.7, "benefit": "Mountain greener", "unlockLevel": 28, "sprite": "assets/sprites/env/tree_pine.png" },
+    { "id": "jacaranda",   "name": "Jacaranda",   "sci": "Jacaranda mimosifolia", "growthSeconds": 0.7, "benefit": "City beautifier", "unlockLevel": 40, "sprite": "assets/sprites/env/tree_jacaranda.png" },
+    { "id": "golden_neem", "name": "Golden Neem", "sci": "Azadirachta (var.)", "growthSeconds": 0.9, "benefit": "Legendary purifier", "unlockLevel": 40, "sprite": "assets/sprites/env/tree_golden.png" }
+  ]
+}

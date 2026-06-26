@@ -122,6 +122,38 @@
       "trigger": "generic"
     },
     {
+      "id": "girl_tree",
+      "speaker": "Choti",
+      "text": "Didi... ye ped aapne lagaya? Main bhi lagaungi!",
+      "voice": "girl_tree",
+      "portrait": "assets/sprites/npc/little_girl.png",
+      "trigger": "generic"
+    },
+    {
+      "id": "disha_hint",
+      "speaker": "Disha",
+      "text": "Pehle aura bharo, phir Cure dabao — presentation baad mein!",
+      "voice": "disha_hint",
+      "portrait": "assets/sprites/npc/disha.png",
+      "trigger": "generic"
+    },
+    {
+      "id": "sanket_eng",
+      "speaker": "Sanket",
+      "text": "Engineering sirf machine repair nahi... soch bhi repair karti hai.",
+      "voice": "sanket_eng",
+      "portrait": "assets/sprites/npc/sanket.png",
+      "trigger": "generic"
+    },
+    {
+      "id": "gullu_food",
+      "speaker": "Gullu",
+      "text": "Bhookh lagi hai... ek vada pav ho jaaye? Phir kaam karte hain!",
+      "voice": "gullu_food",
+      "portrait": "assets/sprites/npc/gullu.png",
+      "trigger": "generic"
+    },
+    {
       "id": "vaishnav_search",
       "speaker": "Vaishnav",
       "text": "Shefali kahan hai? Shefali kahan hai? Aji sunte ho!",

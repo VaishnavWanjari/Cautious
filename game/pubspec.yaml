@@ -28,6 +28,8 @@ flutter:
   assets:
     - assets/config/
     - assets/config/levels/
+    - assets/config/db/
+    - assets/config/localization/
     - assets/sprites/shefali/
     - assets/sprites/enemies/
     - assets/sprites/pickups/

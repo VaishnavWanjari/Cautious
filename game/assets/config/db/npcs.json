@@ -1,0 +1,11 @@
+{
+  "_comment": "NPC database. 'lines' are dialogue ids (in dialogues.json). 'gives' optionally grants an item id on interact. Add NPCs freely; levels reference them by id in their 'npcs' array.",
+  "npcs": [
+    { "id": "tea_uncle", "name": "Chai Uncle", "role": "Tea Stall Owner", "lines": ["chai_uncle_welcome", "chai_uncle_tip"], "gives": "chai", "emoji": "🍵", "color": "#FFCC80" },
+    { "id": "little_girl", "name": "Choti", "role": "Child", "lines": ["girl_tree"], "gives": "", "emoji": "🧒", "color": "#F48FB1" },
+    { "id": "disha", "name": "Disha", "role": "Friend (hints)", "lines": ["disha_hint"], "gives": "", "emoji": "😄", "color": "#CE93D8" },
+    { "id": "sanket", "name": "Sanket", "role": "Engineer colleague", "lines": ["sanket_eng"], "gives": "", "emoji": "🛠️", "color": "#A5D6A7" },
+    { "id": "gullu", "name": "Gullu", "role": "Comic relief", "lines": ["gullu_food"], "gives": "vada_pav", "emoji": "🙂", "color": "#FFAB91" },
+    { "id": "friend_volunteer", "name": "Naya Dost", "role": "Healed volunteer", "lines": ["enemy_cured"], "gives": "", "emoji": "💚", "color": "#66BB6A" }
+  ]
+}

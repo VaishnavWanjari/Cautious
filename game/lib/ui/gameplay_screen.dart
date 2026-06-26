@@ -51,6 +51,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
     final level = services.config.levelByIndex(widget.levelIndex);
     if (level == null) return;
     _level = level;
+    final p = services.progress;
     _game = ShefaliGame(
       config: services.config,
       level: level,
@@ -61,6 +62,10 @@ class _GameplayScreenState extends State<GameplayScreen> {
       onDialogue: _showDialogue,
       onLevelComplete: _onLevelComplete,
       onGameOver: _onGameOver,
+      profileLevel: p.level,
+      profileXpFraction: p.xpPerLevel == 0 ? 0 : p.xpIntoLevel / p.xpPerLevel,
+      profileCoins: p.coins,
+      playerName: p.playerName,
     );
   }
 
@@ -74,11 +79,26 @@ class _GameplayScreenState extends State<GameplayScreen> {
 
   Future<void> _onLevelComplete(LevelResult result) async {
     _game?.pauseEngine();
-    await _services!.progress.completeLevel(
+    final p = _services!.progress;
+    await p.completeLevel(
       levelId: result.levelId,
       levelIndex: result.levelIndex,
       seedsCollected: result.seedsCollected,
     );
+    // Reward the run: XP + coins + nature points, and a few achievements.
+    await p.grantRewards({
+      'xp': 50 + result.curedEnemies * 30 + result.seedsCollected * 5,
+      'coins': result.score,
+      'naturePoints': result.curedEnemies * 10,
+      'compassionPoints': result.curedEnemies * 5,
+    });
+    if (result.curedEnemies > 0) {
+      await p.unlockAchievement('nature_friend');
+      await p.unlockAchievement('first_tree'); // cures plant a tree
+    }
+    if (result.seedsTotal > 0 && result.seedsCollected >= result.seedsTotal) {
+      await p.unlockAchievement('eco_warrior');
+    }
     if (mounted) setState(() => _result = result);
   }
 
