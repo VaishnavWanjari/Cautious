@@ -7,6 +7,7 @@ library;
 
 import 'package:flame/cache.dart';
 import 'package:flame/components.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class ArtRegistry {
