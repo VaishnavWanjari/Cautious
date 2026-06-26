@@ -103,10 +103,23 @@ class _CutsceneScreenState extends State<CutsceneScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const CircleAvatar(
-                          radius: 34,
-                          backgroundColor: Color(0xFFB39DDB),
-                          child: Text('🧘', style: TextStyle(fontSize: 30)),
+                        Container(
+                          width: 68,
+                          height: 68,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xFFB39DDB),
+                            border: Border.all(color: const Color(0xFFCDDC39), width: 2),
+                          ),
+                          child: ClipOval(
+                            child: Image.asset(
+                              'assets/sprites/shefali/portrait.png',
+                              fit: BoxFit.cover,
+                              alignment: Alignment.topCenter,
+                              errorBuilder: (_, __, ___) =>
+                                  const Center(child: Text('🧘', style: TextStyle(fontSize: 30))),
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 12),
                         Text(

@@ -39,12 +39,23 @@ class ArtRegistry {
   Sprite? sprite(String slot) => _sprites[slot];
   bool has(String slot) => _sprites.containsKey(slot);
 
-  /// Convenience: draw the slot's sprite stretched to [size] at the component
-  /// origin, returning true if it drew (so callers can else-draw vector art).
+  /// Draw the slot's sprite into the [size] box preserving aspect ratio and
+  /// bottom-aligning (so a character's feet sit on the ground). Returns true if
+  /// it drew, so callers can otherwise fall back to vector art.
   bool draw(Canvas canvas, String slot, Vector2 size) {
     final s = _sprites[slot];
     if (s == null) return false;
-    s.render(canvas, size: size);
+    final src = s.srcSize;
+    if (src.x <= 0 || src.y <= 0) {
+      s.render(canvas, size: size);
+      return true;
+    }
+    final scale = (size.x / src.x).clamp(0.0, size.y / src.y);
+    final dw = src.x * scale;
+    final dh = src.y * scale;
+    final dx = (size.x - dw) / 2;
+    final dy = size.y - dh; // bottom-align
+    s.render(canvas, position: Vector2(dx, dy), size: Vector2(dw, dh));
     return true;
   }
 }

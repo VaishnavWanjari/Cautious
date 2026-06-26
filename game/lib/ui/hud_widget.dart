@@ -91,7 +91,15 @@ class _Portrait extends StatelessWidget {
         gradient: const LinearGradient(colors: [Color(0xFF7E57C2), Color(0xFF4A2E83)]),
         border: Border.all(color: const Color(0xFFCDDC39), width: 2),
       ),
-      child: CustomPaint(painter: _FacePainter()),
+      child: ClipOval(
+        child: Image.asset(
+          'assets/sprites/shefali/portrait.png',
+          fit: BoxFit.cover,
+          alignment: Alignment.topCenter,
+          // Fall back to the painted face if the PNG is absent.
+          errorBuilder: (_, __, ___) => CustomPaint(painter: _FacePainter()),
+        ),
+      ),
     );
   }
 }
