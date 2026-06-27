@@ -1,25 +1,21 @@
 {
-  "_comment": "Higgsfield-generated assets fetched at BUILD TIME by tool/process_assets.py (the CI runner has open internet; this dev sandbox's egress blocks the CDN). 'key' flood-fills the white background to transparent; 'trim' crops to the subject; 'maxH' downscales. Targets map onto art_map.json slots, so they replace the vector art automatically. If a URL expires the build still succeeds and the game falls back to vector art.",
+  "_comment": "Higgsfield-generated assets fetched at BUILD TIME by tool/process_assets.py (the CI runner has open internet; this dev sandbox's egress blocks the CDN). 'key' flood-fills the white background to transparent; 'trim' crops to the subject; 'maxH' downscales. Targets map onto art_map.json slots, so they replace the vector/pack art automatically. If a URL expires the build still succeeds and the game falls back to vector art. Base: https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/",
   "assets": [
-    {
-      "target": "assets/sprites/env/bg_tea_post.png",
-      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260626_194740_70d3944d-9f00-434e-8cdf-1fb3098407b2.png",
-      "key": false, "trim": false, "maxH": 1152
-    },
-    {
-      "target": "assets/sprites/enemies/litterer.png",
-      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260626_195013_45c4b55b-145d-4de7-840e-6c0c5233afcb.png",
-      "key": true, "trim": true, "maxH": 640
-    },
-    {
-      "target": "assets/sprites/enemies/litterer_cured.png",
-      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260626_195050_a41fb72d-95ce-4054-a850-ac8ccb0ea933.png",
-      "key": true, "trim": true, "maxH": 640
-    },
-    {
-      "target": "assets/sprites/npc/chai_uncle.png",
-      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260626_195212_dcbb61a7-65fa-4108-a952-5f12e99951f9.png",
-      "key": true, "trim": true, "maxH": 640
-    }
+    { "target": "assets/sprites/env/bg_tea_post.png",        "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260626_194740_70d3944d-9f00-434e-8cdf-1fb3098407b2.png", "key": false, "trim": false, "maxH": 1152 },
+    { "target": "assets/sprites/enemies/litterer.png",        "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260626_195013_45c4b55b-145d-4de7-840e-6c0c5233afcb.png", "key": true, "trim": true, "maxH": 640 },
+    { "target": "assets/sprites/enemies/litterer_cured.png",  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260626_195050_a41fb72d-95ce-4054-a850-ac8ccb0ea933.png", "key": true, "trim": true, "maxH": 640 },
+    { "target": "assets/sprites/npc/chai_uncle.png",          "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260626_195212_dcbb61a7-65fa-4108-a952-5f12e99951f9.png", "key": true, "trim": true, "maxH": 640 },
+
+    { "target": "assets/sprites/shefali/idle.png",      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260627_204610_9374b957-f7f4-4003-b8c0-b8436cb52adf.png", "key": true, "trim": true, "maxH": 700 },
+    { "target": "assets/sprites/shefali/run.png",       "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260627_204646_75473472-cb86-46f3-9afa-5e316dc33a42.png", "key": true, "trim": true, "maxH": 700 },
+    { "target": "assets/sprites/shefali/meditate.png",  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260627_204656_27776a50-6821-4979-bfa8-57553c786441.png", "key": true, "trim": true, "maxH": 700 },
+    { "target": "assets/sprites/shefali/portrait.png",  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260627_204718_a16e9ed1-580d-4e5a-b52d-daf259e91b7e.png", "key": true, "trim": true, "maxH": 512 },
+
+    { "target": "assets/sprites/pickups/chai.png",       "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260627_204753_b4633876-fc34-4f84-b923-b36b9392512e.png", "key": true, "trim": true, "maxH": 256 },
+    { "target": "assets/sprites/pickups/bread_jam.png",  "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260627_204820_386c7cea-45d5-449f-9f40-ca9a63af6850.png", "key": true, "trim": true, "maxH": 256 },
+    { "target": "assets/sprites/pickups/magaj_seed.png", "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260627_204835_2cf1d5ef-99f4-41bc-9e03-89f5b4050c61.png", "key": true, "trim": true, "maxH": 256 },
+    { "target": "assets/sprites/pickups/vada_pav.png",   "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260627_204904_04c9bf2a-8869-4d66-8fa1-bac60a4afe88.png", "key": true, "trim": true, "maxH": 256 },
+    { "target": "assets/sprites/pickups/maggi.png",      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260627_204940_5a5c88a1-3f7e-47ff-ab9c-b461fb8e4fe7.png", "key": true, "trim": true, "maxH": 256 },
+    { "target": "assets/sprites/pickups/sushi.png",      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3FgY2K8giqIxTG6nK6fgPnkj9Nz/hf_20260627_205009_02a82c8b-ec81-481c-a060-7e7a5f2922f0.png", "key": true, "trim": true, "maxH": 256 }
   ]
 }
