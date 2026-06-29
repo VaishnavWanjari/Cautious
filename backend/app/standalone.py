@@ -463,11 +463,57 @@ class Handler(BaseHTTPRequestHandler):
         return self._json({"error": "not found"}, 404)
 
 
+def _bind(preferred: int) -> ThreadingHTTPServer:
+    """Bind 127.0.0.1 on the preferred port, falling back if it's in use."""
+    last_err: OSError | None = None
+    for port in [preferred, *range(8001, 8011), 0]:
+        try:
+            return ThreadingHTTPServer(("127.0.0.1", port), Handler)
+        except OSError as exc:  # port already in use, etc.
+            last_err = exc
+            continue
+    raise last_err or OSError("Could not bind a local port")
+
+
+def _open_browser(url: str) -> None:
+    """Open the default browser once the server is actually listening."""
+    import time
+    import webbrowser
+
+    def worker() -> None:
+        time.sleep(1.0)  # give serve_forever a moment to start accepting
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass  # headless / no browser — the URL is printed anyway
+
+    threading.Thread(target=worker, daemon=True).start()
+
+
 def main() -> None:
-    port = int(os.environ.get("PORT", "8000"))
-    httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
-    print(f"Commissioning Scheduler Pro (standalone) → http://127.0.0.1:{port}")
-    print("Zero-dependency mode: Python standard library only. Ctrl+C to stop.")
+    if not (WEB_DIR / "index.html").exists():
+        print("ERROR: web UI not found at", WEB_DIR / "index.html")
+        print("Run this from the project's `backend` folder (or via run-portable-windows.bat).")
+        raise SystemExit(1)
+
+    preferred = int(os.environ.get("PORT", "8000"))
+    httpd = _bind(preferred)
+    actual_port = httpd.server_address[1]
+    url = f"http://127.0.0.1:{actual_port}"
+
+    print("=" * 60)
+    print("  Commissioning Scheduler Pro — standalone (offline) mode")
+    print("=" * 60)
+    print(f"  Open this in your browser:  {url}")
+    if actual_port != preferred:
+        print(f"  (port {preferred} was busy, using {actual_port})")
+    print("  Zero-dependency mode: Python standard library only.")
+    print("  Keep this window open while using the app. Ctrl+C to stop.")
+    print("=" * 60)
+
+    if os.environ.get("NO_BROWSER") != "1":
+        _open_browser(url)
+
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

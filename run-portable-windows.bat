@@ -30,8 +30,12 @@ if not defined PY (
   exit /b 1
 )
 
-echo Starting Commissioning Scheduler Pro at http://127.0.0.1:8000 ...
-echo (Close this window to stop the app.)
-start "" http://127.0.0.1:8000
+echo Starting Commissioning Scheduler Pro ...
+echo The app will open in your browser automatically once it is ready.
+echo (Keep this window open while using the app; close it to stop.)
+echo.
 %PY% "%ENTRY%"
+echo.
+echo The app has stopped. Press any key to close this window.
+pause >nul
 endlocal

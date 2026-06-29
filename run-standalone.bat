@@ -13,10 +13,13 @@ if errorlevel 1 (
   exit /b 1
 )
 
-cd backend
-echo Starting Commissioning Scheduler Pro (standalone) on http://127.0.0.1:8000 ...
-start "" http://127.0.0.1:8000
-python -m app.standalone
-cd ..
+echo Starting Commissioning Scheduler Pro (standalone) ...
+echo The app will open in your browser automatically once it is ready.
+echo (Keep this window open while using the app; close it to stop.)
+echo.
+python "%~dp0backend\run_standalone.py"
+echo.
+echo The app has stopped. Press any key to close this window.
+pause >nul
 
 endlocal
