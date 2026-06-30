@@ -25,7 +25,7 @@ import threading
 from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from .application.logic_engine import compile_rule
 from .application.network import build_network
@@ -52,57 +52,93 @@ class Store:
 
     # --- seed ---------------------------------------------------------------
     def reset_to_seed(self) -> None:
+        from . import seed_data as sd
+
         self.project = {
-            "name": "LNG Train 1 — Pre-Commissioning",
-            "client": "ACME Energy",
-            "location": "Ras Laffan",
-            "mechanical_completion_date": "2027-01-15",
-            "planned_startup_date": "2027-02-01",
+            "name": "GPT-3/4 Gas Processing Train",
+            "subtitle": "Pre-Commissioning Tracker & Visualizer",
+            "client": "Gas Processing Plant",
+            "location": "GPT-3/4",
+            "mechanical_completion_date": "2027-12-31",
+            "planned_startup_date": "2028-01-31",
             "working_weekdays": [1, 2, 3, 4, 5, 6],
-            "holidays": ["2027-01-01"],
+            "holidays": [],
         }
-        chain = [
-            ("A-010", "Hydrotest", 7, "Piping"),
-            ("A-020", "Dewatering", 2, "Piping"),
-            ("A-030", "Drying", 5, "Piping"),
-            ("A-040", "Reinstatement", 3, "Piping"),
-            ("A-050", "Leak Test", 2, "Process"),
+        self.pmccs = [
+            {
+                "seq": seq,
+                "category": cat,
+                "no": no,
+                "description": desc,
+                "system_count": sysn,
+                "subsystem_count": subn,
+            }
+            for (seq, cat, no, desc, sysn, subn) in sd.PMCCS
         ]
+        self.subsystems = []
         self.activities = []
-        for i, (aid, name, dur, disc) in enumerate(chain):
-            self.activities.append(
+        self.relationships = []
+        aid = 1
+        rid = 1
+        for sub_index, (code, desc, prio, special, pmcc_no) in enumerate(sd.CIRCUITS):
+            self.subsystems.append(
                 {
-                    "id": i + 1,
-                    "activity_id": aid,
-                    "name": name,
-                    "duration": dur,
-                    "discipline": disc,
-                    "system": "Condensate Stabilizer",
-                    "status": "Not Started",
-                    "pos_x": i * 260.0,
-                    "pos_y": 0.0,
+                    "id": sub_index + 1,
+                    "code": code,
+                    "description": desc,
+                    "priority": prio,
+                    "special": special,
+                    "pmcc_no": pmcc_no,
                 }
             )
-        self.relationships = [
-            {"id": i + 1, "predecessor_id": i + 1, "successor_id": i + 2, "rel_type": "FS", "lag": 0}
-            for i in range(len(chain) - 1)
-        ]
+            prev_id = None
+            for seq, (name, dur, disc) in enumerate(sd.build_activities(code, desc, special)):
+                self.activities.append(
+                    {
+                        "id": aid,
+                        "activity_id": f"{code}/{seq + 1:02d}",
+                        "name": name,
+                        "duration": dur,
+                        "discipline": disc,
+                        "circuit": code,
+                        "circuit_desc": desc,
+                        "pmcc_no": pmcc_no,
+                        "priority": prio,
+                        "status": "Not Started",
+                        "pos_x": None,
+                        "pos_y": None,
+                    }
+                )
+                if prev_id is not None:
+                    self.relationships.append(
+                        {
+                            "id": rid,
+                            "predecessor_id": prev_id,
+                            "successor_id": aid,
+                            "rel_type": "FS",
+                            "lag": 0,
+                        }
+                    )
+                    rid += 1
+                prev_id = aid
+                aid += 1
         self.logic_rules = [
-            {"id": 1, "condition": "Hydrotest Complete", "action": "Enable Dewatering"},
-            {
-                "id": 2,
-                "condition": "Drying Complete AND Nitrogen Available",
-                "action": "Enable Leak Test",
-            },
+            {"id": 1, "condition": "Hydrotest Complete", "action": "Enable Reinstatement"},
+            {"id": 2, "condition": "Leak Test Complete AND Nitrogen Available", "action": "Enable Inertization"},
+            {"id": 3, "condition": "Loop Check Complete", "action": "Enable Punch Point Liquidation"},
         ]
-        self._next = {"activity": 6, "rel": 5, "rule": 3}
+        self._next = {"activity": aid, "rel": rid, "rule": 4}
 
     # --- persistence --------------------------------------------------------
     def load(self) -> None:
         if DATA_FILE.exists():
             try:
                 data = json.loads(DATA_FILE.read_text("utf-8"))
+                if data.get("project", {}).get("name") != self.project["name"]:
+                    return  # stale dataset from an older version — keep the fresh seed
                 self.project = data["project"]
+                self.pmccs = data.get("pmccs", self.pmccs)
+                self.subsystems = data.get("subsystems", self.subsystems)
                 self.activities = data["activities"]
                 self.relationships = data["relationships"]
                 self.logic_rules = data.get("logic_rules", [])
@@ -116,6 +152,8 @@ class Store:
             json.dumps(
                 {
                     "project": self.project,
+                    "pmccs": self.pmccs,
+                    "subsystems": self.subsystems,
                     "activities": self.activities,
                     "relationships": self.relationships,
                     "logic_rules": self.logic_rules,
@@ -138,7 +176,11 @@ class Store:
             holidays={date.fromisoformat(h) for h in self.project["holidays"]},
         )
 
-    def _domain(self) -> tuple[list[ActivityNode], list[Edge]]:
+    def _domain(self, pmcc: str | None = None) -> tuple[list[ActivityNode], list[Edge]]:
+        acts = self.activities
+        if pmcc:
+            acts = [a for a in acts if a.get("pmcc_no") == pmcc]
+        ids = {a["id"] for a in acts}
         nodes = [
             ActivityNode(
                 id=str(a["id"]),
@@ -148,11 +190,12 @@ class Store:
                 discipline=a["discipline"],
                 status=a["status"],
             )
-            for a in self.activities
+            for a in acts
         ]
         edges = [
             Edge(str(r["predecessor_id"]), str(r["successor_id"]), RelationType(r["rel_type"]), r["lag"])
             for r in self.relationships
+            if r["predecessor_id"] in ids and r["successor_id"] in ids
         ]
         return nodes, edges
 
@@ -193,9 +236,9 @@ class Store:
             "warnings": res.warnings,
         }
 
-    def network(self) -> dict:
-        self.compute()  # ensure dates fresh
-        nodes, edges = self._domain()
+    def network(self, pmcc: str | None = None) -> dict:
+        self.compute()  # ensure dates fresh (global schedule)
+        nodes, edges = self._domain(pmcc)
         by = {a["id"]: a for a in self.activities}
         positions = {}
         for n in nodes:
@@ -206,32 +249,63 @@ class Store:
             n.is_critical = a.get("is_critical", False)
             if a.get("pos_x") is not None:
                 positions[n.id] = (a["pos_x"], a["pos_y"])
-        return build_network(nodes, edges, positions)
+        net = build_network(nodes, edges, positions)
+        # enrich each node with circuit / priority for grouped display
+        for node in net["nodes"]:
+            a = by.get(int(node["id"]))
+            if a:
+                node["data"]["circuit"] = a.get("circuit", "")
+                node["data"]["priority"] = a.get("priority", "")
+        return net
 
-    def validate(self) -> dict:
-        nodes, edges = self._domain()
+    def validate(self, pmcc: str | None = None) -> dict:
+        nodes, edges = self._domain(pmcc)
         w, e = validate_network(nodes, edges)
         return {"warnings": w, "errors": e}
 
-    def summary(self) -> dict:
+    def summary(self, pmcc: str | None = None) -> dict:
         sched = self.compute()
-        acts = self.activities
+        sched_by = {a["id"]: a for a in sched["activities"]}
+        acts = self.activities if not pmcc else [a for a in self.activities if a.get("pmcc_no") == pmcc]
         total = len(acts)
         completed = sum(1 for a in acts if a["status"] == "Completed")
         in_prog = sum(1 for a in acts if a["status"] == "In Progress")
+        rows = [sched_by[a["id"]] for a in acts if a["id"] in sched_by]
+        # per-PMCC roll-up for the overview
+        pmcc_rollup = []
+        for p in self.pmccs:
+            pa = [a for a in self.activities if a.get("pmcc_no") == p["no"]]
+            if not pa:
+                continue
+            done = sum(1 for a in pa if a["status"] == "Completed")
+            pmcc_rollup.append(
+                {
+                    "no": p["no"],
+                    "category": p["category"],
+                    "description": p["description"],
+                    "seq": p["seq"],
+                    "activities": len(pa),
+                    "completed": done,
+                    "critical": sum(1 for a in pa if a.get("is_critical")),
+                }
+            )
         return {
             "project": {
                 "name": self.project["name"],
+                "subtitle": self.project.get("subtitle", ""),
                 "client": self.project["client"],
                 "mechanical_completion_date": self.project["mechanical_completion_date"],
                 "planned_startup_date": self.project["planned_startup_date"],
             },
+            "filter_pmcc": pmcc,
             "total_activities": total,
             "completed": completed,
             "in_progress": in_prog,
             "pending": total - completed - in_prog,
-            "critical": sum(1 for a in sched["activities"] if a["is_critical"]),
-            "activities": sched["activities"],
+            "critical": sum(1 for a in rows if a["is_critical"]),
+            "circuits": len({a["circuit"] for a in acts}),
+            "activities": rows,
+            "pmcc_rollup": pmcc_rollup,
         }
 
 
@@ -317,7 +391,10 @@ class Handler(BaseHTTPRequestHandler):
 
     # --- routing ---
     def do_GET(self):
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
+        qs = parse_qs(parsed.query)
+        pmcc = (qs.get("pmcc") or [None])[0] or None
         if path in ("/", "/index.html"):
             html = (WEB_DIR / "index.html").read_bytes()
             return self._bytes(html, "text/html; charset=utf-8")
@@ -326,8 +403,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"status": "ok", "mode": "standalone", "ai_available": bool(os.environ.get("ANTHROPIC_API_KEY"))})
             if path == "/api/project":
                 return self._json(STORE.project)
+            if path == "/api/pmccs":
+                return self._json(STORE.pmccs)
+            if path == "/api/subsystems":
+                subs = STORE.subsystems if not pmcc else [s for s in STORE.subsystems if s["pmcc_no"] == pmcc]
+                return self._json(subs)
             if path == "/api/activities":
-                return self._json(STORE.activities)
+                acts = STORE.activities if not pmcc else [a for a in STORE.activities if a.get("pmcc_no") == pmcc]
+                return self._json(acts)
             if path == "/api/relationships":
                 return self._json(STORE.relationships)
             if path == "/api/templates":
@@ -343,13 +426,13 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/schedule/compute":
                 return self._json(STORE.compute())
             if path == "/api/network":
-                return self._json(STORE.network())
+                return self._json(STORE.network(pmcc))
             if path == "/api/validate":
-                return self._json(STORE.validate())
+                return self._json(STORE.validate(pmcc))
             if path == "/api/summary":
-                return self._json(STORE.summary())
+                return self._json(STORE.summary(pmcc))
             if path == "/api/export/html":
-                return self._bytes(export_dashboard_html(STORE.summary(), STORE.compute()).encode(), "text/html; charset=utf-8")
+                return self._bytes(export_dashboard_html(STORE.summary(pmcc), STORE.compute()).encode(), "text/html; charset=utf-8")
             if path == "/api/export/csv":
                 return self._bytes(export_csv(), "text/csv", filename="schedule.csv")
         return self._json({"error": "not found"}, 404)

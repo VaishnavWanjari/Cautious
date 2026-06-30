@@ -1,4 +1,4 @@
-# Commissioning Scheduler Pro
+# GPT-3/4 Gas Processing Train — Pre-Commissioning Tracker & Visualizer
 
 A professional **offline desktop application** for EPC Pre-Commissioning &
 Commissioning planning on **Oil & Gas, LNG, Refinery, Petrochemical and Gas
@@ -6,6 +6,15 @@ Processing** projects. It works like a focused, Primavera-style planning tool:
 build the commissioning hierarchy, draw the logic network visually, and let the
 engine **back-calculate the schedule from the Mechanical Completion date** with
 full critical-path analysis.
+
+It ships preloaded with the **GPT-3/4 Gas Processing Train** dataset: the
+21-PMCC handover sequence (Non-Process / Utility / Process) and ~155 commissioning
+circuits, each with its priority and special pre-commissioning activity (chemical
+cleaning, steam blowing, adsorbent loading, amine degreasing, internals box-up,
+…) plus the standard activity set applied to every circuit — Reinstatement,
+Vessel Inspection (if any), Leak Test with Dry Air, Inertization, No-Load Test
+(if motors), Loop Check, Punch Point Liquidation and Layup Witness. Browse and
+filter everything by PMCC.
 
 > Built for commissioning, startup, planning and project-controls engineers.
 
