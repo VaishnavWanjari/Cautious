@@ -342,6 +342,57 @@ class Store:
             "pmcc_rollup": pmcc_rollup,
         }
 
+    def timeline(self, pmcc: str | None = None) -> dict:
+        """Time-phased data: circuits with date spans + per-activity dates/preds.
+
+        Drives the SIMOPS timeline — circuits laid on a calendar axis so parallel
+        (overlapping) vs series (sequential) work across subsystems is visible.
+        """
+        sched = self.compute()
+        acts = self.activities if not pmcc else [a for a in self.activities if a.get("pmcc_no") == pmcc]
+        preds: dict[int, list[int]] = {}
+        for r in self.relationships:
+            preds.setdefault(r["successor_id"], []).append(r["predecessor_id"])
+        by_code: dict[str, list[dict]] = {}
+        for a in acts:
+            by_code.setdefault(a["circuit"], []).append(a)
+        circuits = []
+        for code, items in by_code.items():
+            starts = [a["start_date"] for a in items if a.get("start_date")]
+            finishes = [a["finish_date"] for a in items if a.get("finish_date")]
+            circuits.append(
+                {
+                    "code": code,
+                    "pmcc_no": items[0]["pmcc_no"],
+                    "priority": items[0]["priority"],
+                    "description": items[0].get("circuit_desc", ""),
+                    "start": min(starts) if starts else None,
+                    "finish": max(finishes) if finishes else None,
+                    "critical": any(a.get("is_critical") for a in items),
+                    "activities": [
+                        {
+                            "id": a["id"],
+                            "name": a["name"],
+                            "discipline": a["discipline"],
+                            "start": a.get("start_date"),
+                            "finish": a.get("finish_date"),
+                            "critical": a.get("is_critical", False),
+                            "float": a.get("total_float"),
+                            "preds": preds.get(a["id"], []),
+                        }
+                        for a in items
+                    ],
+                }
+            )
+        circuits.sort(key=lambda c: (c["start"] or "9999", c["pmcc_no"], c["code"]))
+        return {
+            "project_start": sched["project_start"],
+            "project_finish": sched["project_finish"],
+            "mechanical_completion": self.project["mechanical_completion_date"],
+            "filter_pmcc": pmcc,
+            "circuits": circuits,
+        }
+
 
 STORE = Store()
 
@@ -465,6 +516,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(STORE.validate(pmcc))
             if path == "/api/summary":
                 return self._json(STORE.summary(pmcc))
+            if path == "/api/timeline":
+                return self._json(STORE.timeline(pmcc))
             if path == "/api/export/html":
                 return self._bytes(export_dashboard_html(STORE.summary(pmcc), STORE.compute()).encode(), "text/html; charset=utf-8")
             if path == "/api/export/csv":

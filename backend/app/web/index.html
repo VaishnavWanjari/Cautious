@@ -59,6 +59,25 @@
   .msg.ai { background:#eef2f7; }
   svg text { font-family:inherit; }
   .hint { background:#fff8ed; border:1px solid #fde6c4; color:#92702a; border-radius:10px; padding:14px; font-size:13px; }
+  /* timeline */
+  .tl-wrap { position:relative; overflow:auto; max-height:74vh; border:1px solid #eef0f3; border-radius:12px; background:#fff; cursor:grab; user-select:none; }
+  .tl-wrap.drag { cursor:grabbing; }
+  .tl-grid { position:relative; }
+  .tl-head { position:sticky; top:0; z-index:5; height:34px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+  .tl-month { position:absolute; top:0; height:34px; border-left:1px solid #e2e8f0; font-size:10px; color:#475569; padding:3px 0 0 4px; white-space:nowrap; }
+  .tl-week { position:absolute; top:0; bottom:0; border-left:1px solid #f1f5f9; }
+  .tl-row { position:relative; height:24px; border-top:1px solid #f4f6f9; }
+  .tl-lab { position:sticky; left:0; z-index:4; width:240px; height:24px; display:inline-flex; align-items:center; gap:6px; background:#fff; border-right:1px solid #eef0f3; font-size:11px; padding-left:8px; white-space:nowrap; overflow:hidden; }
+  .tl-lab.crit { background:#fff3ee; }
+  .tl-bar { position:absolute; top:4px; height:15px; border-radius:3px; background:var(--epc); color:#fff; font-size:9px; line-height:15px; padding:0 5px; overflow:hidden; white-space:nowrap; box-shadow:0 1px 1px rgba(0,0,0,.15); }
+  .tl-bar.crit { background:var(--crit); }
+  .tl-bar.sumA{background:#1d4ed8;} .tl-bar.sumB{background:#2563eb;} .tl-bar.sumC{background:#64748b;}
+  .tl-mc { position:absolute; top:34px; bottom:0; border-left:2px dashed #16a34a; z-index:3; }
+  .tl-today { position:absolute; top:34px; bottom:0; border-left:2px dotted #dc2626; z-index:3; }
+  .tl-ctrl { display:flex; gap:14px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+  .tl-ctrl .seg button { border:1px solid #cbd5e1; background:#fff; padding:5px 10px; font-size:12px; cursor:pointer; }
+  .tl-ctrl .seg button.on { background:var(--epc); color:#fff; border-color:var(--epc); }
+  .tl-ctrl .seg button:first-child{border-radius:6px 0 0 6px;} .tl-ctrl .seg button:last-child{border-radius:0 6px 6px 0;}
 </style>
 </head>
 <body>
@@ -85,10 +104,12 @@
   </main>
 </div>
 <script>
-const TABS = ["Dashboard","PMCCs","Network","Gantt","Circuits","Logic","Exports","AI"];
+const TABS = ["Dashboard","PMCCs","Network","Timeline","Gantt","Circuits","Logic","Exports","AI"];
 let current = "Dashboard";
 let pmcc = "";          // "" = all PMCCs
 let PMCCS = [];
+let tlMode = "circuits"; // timeline granularity: circuits | activities
+let tlPxDay = 7;         // timeline horizontal zoom (px per day)
 
 async function api(method, path, body){
   const r = await fetch(path,{method,headers: body?{"Content-Type":"application/json"}:undefined,body:body?JSON.stringify(body):undefined});
@@ -113,6 +134,7 @@ async function render(){
   if(current==="Dashboard") return renderDashboard(v);
   if(current==="PMCCs") return renderPMCCs(v);
   if(current==="Network") return renderNetwork(v);
+  if(current==="Timeline") return renderTimeline(v);
   if(current==="Gantt") return renderGantt(v);
   if(current==="Circuits") return renderCircuits(v);
   if(current==="Logic") return renderLogic(v);
@@ -214,6 +236,74 @@ async function renderNetwork(v){
         ${labels}${lines}${cards}
       </svg></div>`;
 }
+
+function tlSetMode(m){ tlMode=m; render(); }
+function tlSetZoom(z){ tlPxDay=Number(z); render(); }
+function attachPan(elt){
+  let down=false,sx=0,sy=0,sl=0,st=0;
+  elt.addEventListener("mousedown",e=>{ if(e.target.closest('.tl-lab'))return; down=true; sx=e.pageX; sy=e.pageY; sl=elt.scrollLeft; st=elt.scrollTop; elt.classList.add("drag"); });
+  window.addEventListener("mouseup",()=>{ down=false; elt.classList.remove("drag"); });
+  elt.addEventListener("mousemove",e=>{ if(!down)return; elt.scrollLeft=sl-(e.pageX-sx); elt.scrollTop=st-(e.pageY-sy); });
+}
+
+async function renderTimeline(v){
+  const data=await api("GET","/api/timeline"+q());
+  let circuits=data.circuits.filter(c=>c.start&&c.finish);
+  if(!circuits.length){ v.innerHTML=`<h1>SIMOPS Timeline</h1><div class="hint">No scheduled circuits to show. Try recalculating.</div>`; return; }
+  if(tlMode==="activities" && !pmcc){
+    v.innerHTML=`<h1>SIMOPS Timeline</h1>${tlControls()}<div class="hint">Activity-level timeline is large — pick a PMCC in the top-right to expand every circuit's activities. Use <b>Circuits</b> mode to see the whole train's parallel SIMOPS at a glance.</div>`;
+    wireControls(); return;
+  }
+  const DAY=86400000;
+  const allDates=[]; circuits.forEach(c=>{ allDates.push(c.start,c.finish); });
+  const mc=data.mechanical_completion; if(mc) allDates.push(mc);
+  let min=allDates.reduce((a,b)=>a<b?a:b), max=allDates.reduce((a,b)=>a>b?a:b);
+  const minD=new Date(min);
+  const dayOf=d=>Math.round((new Date(d)-minD)/DAY);
+  const px=tlPxDay, leftW=240;
+  const totalDays=dayOf(max)+2, gridW=totalDays*px, fullW=leftW+gridW;
+  // month headers + week gridlines
+  let head=`<div class="tl-head" style="width:${fullW}px">`;
+  const cur=new Date(minD.getFullYear(),minD.getMonth(),1);
+  const endD=new Date(max);
+  while(cur<=endD){ const off=dayOf(cur.toISOString().slice(0,10));
+    head+=`<div class="tl-month" style="left:${leftW+Math.max(0,off)*px}px">${cur.toLocaleString('en',{month:'short'})} ${cur.getFullYear()}</div>`;
+    cur.setMonth(cur.getMonth()+1); }
+  for(let d=0; d<totalDays; d+=7){ head+=`<div class="tl-week" style="left:${leftW+d*px}px"></div>`; }
+  head+=`</div>`;
+  // MC marker
+  const mcLine = mc? `<div class="tl-mc" style="left:${leftW+dayOf(mc)*px}px" title="Mechanical Completion ${mc}"></div>`:"";
+  // rows
+  let rows="";
+  if(tlMode==="circuits"){
+    circuits.forEach(c=>{ const l=dayOf(c.start),w=Math.max((dayOf(c.finish)-l+1)*px,4);
+      const cls=c.critical?"crit":("sum"+(c.priority||"B")[0]);
+      rows+=`<div class="tl-row" style="width:${fullW}px">
+        <span class="tl-lab ${c.critical?'crit':''}" title="${esc(c.code)}"><span class="pill ${pcls(c.priority)}">${esc(c.priority)}</span>${esc(c.code)}</span>
+        <div class="tl-bar ${cls}" style="left:${leftW+l*px}px;width:${w}px" title="${esc(c.code)} — ${esc(c.description)}\n${c.start} → ${c.finish} (${c.pmcc_no})">${esc(c.code).replace('866-','')}</div></div>`; });
+  } else {
+    circuits.forEach(c=>{
+      rows+=`<div class="tl-row" style="width:${fullW}px;background:#f8fafc"><span class="tl-lab" style="font-weight:600">${esc(c.code)}</span></div>`;
+      c.activities.filter(a=>a.start&&a.finish).forEach(a=>{ const l=dayOf(a.start),w=Math.max((dayOf(a.finish)-l+1)*px,4);
+        rows+=`<div class="tl-row" style="width:${fullW}px">
+          <span class="tl-lab ${a.critical?'crit':''}" title="${esc(a.name)}">&nbsp;&nbsp;${esc(a.name)}</span>
+          <div class="tl-bar ${a.critical?'crit':''}" style="left:${leftW+l*px}px;width:${w}px" title="${esc(a.name)} (${esc(a.discipline)})\n${a.start} → ${a.finish} · float ${a.float}">${esc(a.name).slice(0,14)}</div></div>`; });
+    });
+  }
+  v.innerHTML=`<h1>SIMOPS Timeline${pmcc?(' — '+esc(pmcc)):' — All PMCCs'}</h1>
+    ${tlControls()}
+    <div class="muted" style="margin-bottom:8px">${circuits.length} circuits on a calendar axis — overlapping bars run <b>in parallel (SIMOPS)</b>, sequential bars are <b>in series</b>. Drag to pan · green dashed line = Mechanical Completion (${esc(mc)}). Critical in orange.</div>
+    <div class="tl-wrap" id="tlw"><div class="tl-grid" style="width:${fullW}px">${head}${mcLine}${rows}</div></div>`;
+  wireControls();
+  const w=document.getElementById("tlw"); if(w){ attachPan(w); w.scrollLeft=0; }
+}
+function tlControls(){
+  return `<div class="tl-ctrl">
+    <span class="seg"><button class="${tlMode==='circuits'?'on':''}" onclick="tlSetMode('circuits')">Circuits (overview)</button><button class="${tlMode==='activities'?'on':''}" onclick="tlSetMode('activities')">Activities (detail)</button></span>
+    <label style="font-size:12px;color:#475569">Zoom <input id="tlz" type="range" min="2" max="22" value="${tlPxDay}" oninput="tlSetZoom(this.value)"></label>
+  </div>`;
+}
+function wireControls(){ /* inline handlers already wired */ }
 
 async function renderGantt(v){
   if(!pmcc){ v.innerHTML=`<h1>Gantt Chart</h1><div class="hint">Select a PMCC from the top-right dropdown to view its Gantt. (1,150+ activities is too many to chart at once.)</div>`; return; }
