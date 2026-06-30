@@ -84,8 +84,9 @@ def _seed_project(session: Session) -> None:
         session.add(snr)
         session.flush()
 
-        prev: models.Activity | None = None
-        for seq, (name, dur, disc) in enumerate(sd.build_activities(code, cdesc, special)):
+        activities, edges = sd.build_circuit(code, cdesc, special)
+        local: list[int] = []
+        for seq, (name, dur, disc) in enumerate(activities):
             act = models.Activity(
                 snr_id=snr.id,
                 activity_id=f"{code}/{seq + 1:02d}",
@@ -96,17 +97,41 @@ def _seed_project(session: Session) -> None:
             )
             session.add(act)
             session.flush()
-            if prev is not None:
-                session.add(
-                    models.Relationship(
-                        project_id=project.id,
-                        predecessor_id=prev.id,
-                        successor_id=act.id,
-                        rel_type="FS",
-                        lag=0,
-                    )
+            local.append(act.id)
+        for pi, si, lag in edges:
+            session.add(
+                models.Relationship(
+                    project_id=project.id,
+                    predecessor_id=local[pi],
+                    successor_id=local[si],
+                    rel_type="FS",
+                    lag=lag,
                 )
-            prev = act
+            )
+
+    # Building PMCCs (01-05): one handover block each (no precom circuits).
+    for pmcc_no, dur in sd.BUILDING_DURATIONS.items():
+        system_id = system_by_pmcc.get(pmcc_no)
+        if system_id is None:
+            continue
+        subsystem = models.Subsystem(
+            system_id=system_id, number=pmcc_no, description="Building Pre-Commissioning & Handover", priority=1
+        )
+        session.add(subsystem)
+        session.flush()
+        snr = models.SNR(subsystem_id=subsystem.id, code=pmcc_no, description="Building handover", snr_type="Building")
+        session.add(snr)
+        session.flush()
+        session.add(
+            models.Activity(
+                snr_id=snr.id,
+                activity_id=f"{pmcc_no}/HANDOVER",
+                name="Building Pre-Commissioning & Handover",
+                duration=dur,
+                discipline="Building",
+                priority=1,
+            )
+        )
 
     session.add_all(
         [

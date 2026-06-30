@@ -80,10 +80,12 @@ class Store:
         self.relationships = []
         aid = 1
         rid = 1
-        for sub_index, (code, desc, prio, special, pmcc_no) in enumerate(sd.CIRCUITS):
+        sub_index = 0
+        for (code, desc, prio, special, pmcc_no) in sd.CIRCUITS:
+            sub_index += 1
             self.subsystems.append(
                 {
-                    "id": sub_index + 1,
+                    "id": sub_index,
                     "code": code,
                     "description": desc,
                     "priority": prio,
@@ -91,8 +93,9 @@ class Store:
                     "pmcc_no": pmcc_no,
                 }
             )
-            prev_id = None
-            for seq, (name, dur, disc) in enumerate(sd.build_activities(code, desc, special)):
+            activities, edges = sd.build_circuit(code, desc, special)
+            local_ids: list[int] = []
+            for seq, (name, dur, disc) in enumerate(activities):
                 self.activities.append(
                     {
                         "id": aid,
@@ -109,19 +112,50 @@ class Store:
                         "pos_y": None,
                     }
                 )
-                if prev_id is not None:
-                    self.relationships.append(
-                        {
-                            "id": rid,
-                            "predecessor_id": prev_id,
-                            "successor_id": aid,
-                            "rel_type": "FS",
-                            "lag": 0,
-                        }
-                    )
-                    rid += 1
-                prev_id = aid
+                local_ids.append(aid)
                 aid += 1
+            for pi, si, lag in edges:
+                self.relationships.append(
+                    {
+                        "id": rid,
+                        "predecessor_id": local_ids[pi],
+                        "successor_id": local_ids[si],
+                        "rel_type": "FS",
+                        "lag": lag,
+                    }
+                )
+                rid += 1
+
+        # Building PMCCs (01-05): a single handover block each, no precom circuits.
+        for pmcc_no, dur in sd.BUILDING_DURATIONS.items():
+            sub_index += 1
+            self.subsystems.append(
+                {
+                    "id": sub_index,
+                    "code": pmcc_no,
+                    "description": "Building Pre-Commissioning & Handover",
+                    "priority": "A-1",
+                    "special": "",
+                    "pmcc_no": pmcc_no,
+                }
+            )
+            self.activities.append(
+                {
+                    "id": aid,
+                    "activity_id": f"{pmcc_no}/HANDOVER",
+                    "name": "Building Pre-Commissioning & Handover",
+                    "duration": dur,
+                    "discipline": "Building",
+                    "circuit": pmcc_no,
+                    "circuit_desc": "Building Pre-Commissioning & Handover",
+                    "pmcc_no": pmcc_no,
+                    "priority": "A-1",
+                    "status": "Not Started",
+                    "pos_x": None,
+                    "pos_y": None,
+                }
+            )
+            aid += 1
         self.logic_rules = [
             {"id": 1, "condition": "Hydrotest Complete", "action": "Enable Reinstatement"},
             {"id": 2, "condition": "Leak Test Complete AND Nitrogen Available", "action": "Enable Inertization"},

@@ -264,22 +264,72 @@ def has_motor(description: str) -> bool:
     return bool(_MOTOR_RE.search(description))
 
 
-def build_activities(code: str, description: str, special: str) -> list[tuple[str, int, str]]:
-    """Return the ordered activity list (name, duration_days, discipline) for a circuit."""
-    acts: list[tuple[str, int, str]] = []
+# Building PMCCs (01-05) are not broken into pre-commissioning circuits; each is
+# tracked as a single block in the final schedule, 30-45 working days.
+BUILDING_DURATIONS: dict[str, int] = {
+    "PMCC-01": 45,
+    "PMCC-02": 40,
+    "PMCC-03": 35,
+    "PMCC-04": 35,
+    "PMCC-05": 30,
+}
+
+
+def build_circuit(
+    code: str, description: str, special: str
+) -> tuple[list[tuple[str, int, str]], list[tuple[int, int, int]]]:
+    """Build a circuit's activity precedence network.
+
+    Returns ``(activities, edges)`` where activities is an ordered list of
+    ``(name, duration_days, discipline)`` and edges is a list of
+    ``(predecessor_index, successor_index, lag_days)`` describing the network:
+
+        Special Pre-Com ┐
+        Layup Witness   ├─▶ Reinstatement ─▶ Leak Test (Dry Air) ─▶ Inertization ┐
+        Vessel Insp/Box ┘                  └▶ Loop Check ─(FS+2)▶ No-Load Test ───┴▶ Punch Point
+
+    i.e. reinstatement needs the special pre-com activity, layup witness and
+    vessel inspection/box-up done first; leak test follows reinstatement and
+    inertization follows leak test; loop check also follows reinstatement and the
+    motor no-load test starts two days after loop check; punch-point liquidation
+    closes out both branches. Vessel/no-load activities are included by heuristic.
+    """
+    items: list[tuple[str, str, int, str]] = []  # (key, name, dur, discipline)
     if special:
-        acts.append((special, _special_duration(special), "Pre-Commissioning"))
-    acts.append(("Reinstatement", 2, "Piping"))
+        items.append(("special", special, _special_duration(special), "Pre-Commissioning"))
+    items.append(("layup", "Layup Witness", 1, "QA / Preservation"))
     if has_vessel(description):
-        acts.append(("Vessel Inspection", 1, "Mechanical"))
-    acts.append(("Leak Test (Dry Air)", 1, "Process"))
-    acts.append(("Inertization", 1, "Process"))
+        items.append(("vessel", "Vessel Inspection & Box-up", 1, "Mechanical"))
+    items.append(("reinst", "Reinstatement", 2, "Piping"))
+    items.append(("leak", "Leak Test (Dry Air)", 1, "Process"))
+    items.append(("inert", "Inertization", 1, "Process"))
+    items.append(("loop", "Loop Check", 3, "Instrumentation"))
     if has_motor(description):
-        acts.append(("No Load Test (Motor Solo Run)", 1, "Electrical"))
-    acts.append(("Loop Check", 3, "Instrumentation"))
-    acts.append(("Punch Point Liquidation", 2, "Multi-discipline"))
-    acts.append(("Layup Witness", 1, "QA / Preservation"))
-    return acts
+        items.append(("noload", "No Load Test (Motor Solo Run)", 1, "Electrical"))
+    items.append(("punch", "Punch Point Liquidation", 2, "Multi-discipline"))
+
+    idx = {key: i for i, (key, *_) in enumerate(items)}
+    present = set(idx)
+    edges: list[tuple[int, int, int]] = []
+
+    for start in ("special", "layup", "vessel"):
+        if start in present:
+            edges.append((idx[start], idx["reinst"], 0))
+    edges.append((idx["reinst"], idx["leak"], 0))
+    edges.append((idx["leak"], idx["inert"], 0))
+    edges.append((idx["reinst"], idx["loop"], 0))
+    if "noload" in present:
+        edges.append((idx["loop"], idx["noload"], 2))  # starts 2 working days post Loop Check
+    edges.append((idx["inert"], idx["punch"], 0))
+    edges.append((idx["noload"] if "noload" in present else idx["loop"], idx["punch"], 0))
+
+    activities = [(name, dur, disc) for (_key, name, dur, disc) in items]
+    return activities, edges
+
+
+def build_activities(code: str, description: str, special: str) -> list[tuple[str, int, str]]:
+    """Backwards-compatible helper: just the activity list (no precedence)."""
+    return build_circuit(code, description, special)[0]
 
 
 # numeric rank for priority letters (A highest); used by the priority engine

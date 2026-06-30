@@ -169,16 +169,30 @@ async function renderPMCCs(v){
 async function renderNetwork(v){
   if(!pmcc){ v.innerHTML=`<h1>Visual Logic Network</h1><div class="hint">Select a PMCC from the top-right dropdown to view its commissioning circuits and connectors. (The full train has 1,150+ activities — too many to draw at once.)</div>`; return; }
   const net=await api("GET","/api/network"+q());
-  const W=190,H=78,padX=120,padY=16,GX=210,GY=104;
-  // positions come back scaled to 260/130; re-grid to our spacing
-  const xs=[...new Set(net.nodes.map(n=>n.position.x))].sort((a,b)=>a-b);
-  const ys=[...new Set(net.nodes.map(n=>n.position.y))].sort((a,b)=>a-b);
-  const xi={},yi={}; xs.forEach((x,i)=>xi[x]=i); ys.forEach((y,i)=>yi[y]=i);
-  const pos={}; net.nodes.forEach(n=>{ pos[n.id]={x:padX+xi[n.position.x]*GX, y:padY+yi[n.position.y]*GY}; });
-  const svgW=padX+xs.length*GX+20, svgH=padY+ys.length*GY+20;
-  // circuit row labels (left)
-  const rowLabel={}; net.nodes.forEach(n=>{ const y=pos[n.id].y; if(rowLabel[y]===undefined) rowLabel[y]=n.data.circuit; });
-  const labels=Object.entries(rowLabel).map(([y,c])=>`<text x="6" y="${+y+H/2}" font-size="10" fill="#475569">${esc(c)}</text>`).join("");
+  const W=190,H=78,padX=130,padY=16,GX=215,LANE=96,CGAP=28;
+  // adjacency for per-circuit DAG layout
+  const succ={}; net.nodes.forEach(n=>succ[n.id]=[]);
+  net.edges.forEach(e=>{ if(succ[e.source]) succ[e.source].push(e.target); });
+  // group nodes by circuit, preserving first-seen order
+  const order=[]; const groups={};
+  net.nodes.forEach(n=>{ const c=n.data.circuit; if(!groups[c]){groups[c]=[];order.push(c);} groups[c].push(n.id); });
+  const pos={}; const rowLabels=[]; let yCursor=padY; let maxRank=0;
+  order.forEach(c=>{
+    const ids=groups[c]; const inSub=new Set(ids);
+    const preds={}; ids.forEach(i=>preds[i]=[]);
+    ids.forEach(i=>(succ[i]||[]).forEach(j=>{ if(inSub.has(j)) preds[j].push(i); }));
+    const rank={}; ids.forEach(i=>rank[i]=0);
+    for(let it=0; it<ids.length+2; it++){ let ch=false;
+      ids.forEach(i=>preds[i].forEach(p=>{ if(rank[p]+1>rank[i]){rank[i]=rank[p]+1; ch=true;} }));
+      if(!ch) break; }
+    const lane={};
+    ids.forEach(i=>{ const r=rank[i]; lane[r]=(lane[r]||0); pos[i]={x:padX+r*GX, y:yCursor+lane[r]*LANE, rank:r}; lane[r]++; maxRank=Math.max(maxRank,r); });
+    const usedLanes=Math.max(...Object.values(lane));
+    rowLabels.push({y:yCursor, c});
+    yCursor += usedLanes*LANE + CGAP;
+  });
+  const svgW=padX+(maxRank+1)*GX+20, svgH=yCursor+20;
+  const labels=rowLabels.map(r=>`<text x="6" y="${r.y+14}" font-size="10" font-weight="600" fill="#334155">${esc(r.c)}</text>`).join("");
   // orthogonal connectors
   const lines=net.edges.map(e=>{ const a=pos[e.source],b=pos[e.target]; if(!a||!b)return"";
     const x1=a.x+W,y1=a.y+H/2,x2=b.x,y2=b.y+H/2; const mx=(x1+x2)/2;
@@ -193,7 +207,7 @@ async function renderNetwork(v){
       <text x="${x+8}" y="${y+52}" font-size="10" fill="#64748b">${esc(d.startDate)||'—'} → ${esc(d.finishDate)||'—'}</text>
       <text x="${x+8}" y="${y+68}" font-size="10" fill="#64748b">Float ${d.totalFloat??'—'} · Prio ${esc(d.priority)}</text></g>`;}).join("");
   v.innerHTML=`<h1>Visual Logic Network — ${esc(pmcc)}</h1>
-    <div class="muted" style="margin-bottom:8px">${net.nodes.length} activities across ${ys.length} circuits. Each row is one circuit; orthogonal connectors show Finish-to-Start flow. Critical path in orange.</div>
+    <div class="muted" style="margin-bottom:8px">${net.nodes.length} activities across ${order.length} circuits. Each circuit is a precedence network — parallel Leak Test / Loop Check branches — drawn with orthogonal connectors. Critical path in orange.</div>
     <div class="panel" style="overflow:auto;max-height:72vh">
       <svg width="${svgW}" height="${svgH}">
         <defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L7,3 L0,6 Z" fill="#7c8aa0"/></marker></defs>
@@ -225,7 +239,7 @@ async function renderCircuits(v){
     <td><span class="pill ${pcls(sObj.priority)}">${esc(sObj.priority)}</span></td>
     <td>${esc(sObj.special)||'<span class="muted">— standard set —</span>'}</td><td>${esc(sObj.pmcc_no)}</td></tr>`).join("");
   v.innerHTML=`<h1>Commissioning Circuits${pmcc?(' — '+esc(pmcc)):''}</h1>
-    <div class="muted" style="margin-bottom:10px">${subs.length} circuits. Each carries its special pre-commissioning activity plus the standard set: Reinstatement · Vessel Inspection (if any) · Leak Test (Dry Air) · Inertization · No-Load Test (if motors) · Loop Check · Punch Point Liquidation · Layup Witness.</div>
+    <div class="muted" style="margin-bottom:10px">${subs.length} items. Each circuit carries its special pre-commissioning activity plus the standard set: Layup Witness · Vessel Inspection &amp; Box-up (if any) · Reinstatement · Leak Test (Dry Air) · Inertization · Loop Check · No-Load Test (if motors) · Punch Point Liquidation. Building PMCCs appear as a single 30-45 day handover block.</div>
     <div class="panel" style="padding:0;overflow:hidden"><table>
       <thead><tr><th>Circuit / Sub-system</th><th>Description</th><th>Priority</th><th>Special Pre-Com Activity</th><th>PMCC</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
