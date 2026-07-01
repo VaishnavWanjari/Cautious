@@ -21,6 +21,7 @@ import io
 import json
 import os
 import re
+import sys
 import threading
 from datetime import date, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -38,8 +39,16 @@ from .domain.entities import ActivityNode, Edge
 from .domain.enums import RelationType
 from .infrastructure.exporters.html_exporter import export_dashboard_html
 
-WEB_DIR = Path(__file__).resolve().parent / "web"
-DATA_FILE = Path(__file__).resolve().parent.parent / "data" / "standalone.json"
+# When frozen into a single-file executable (PyInstaller), data files are
+# extracted to a temporary read-only directory (``sys._MEIPASS``) rather than
+# living next to this source file, and that directory disappears when the exe
+# exits — so persistence must live next to the exe itself instead.
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    WEB_DIR = Path(sys._MEIPASS) / "app" / "web"  # type: ignore[attr-defined]
+    DATA_FILE = Path(sys.executable).resolve().parent / "data" / "standalone.json"
+else:
+    WEB_DIR = Path(__file__).resolve().parent / "web"
+    DATA_FILE = Path(__file__).resolve().parent.parent / "data" / "standalone.json"
 
 
 # --------------------------------------------------------------------------

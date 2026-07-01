@@ -1,0 +1,54 @@
+name: Build Windows exe
+
+on:
+  push:
+    branches: ["claude/commissioning-scheduler-pro-2i7cro", "main"]
+    paths:
+      - "backend/**"
+      - ".github/workflows/build-exe.yml"
+  workflow_dispatch:
+
+jobs:
+  build-windows-exe:
+    name: PyInstaller onefile (windows-latest)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pip pyinstaller
+      - name: Sanity-check the standalone server imports cleanly
+        run: python -c "import app.standalone"
+      - name: Build single-file executable
+        run: >
+          pyinstaller --onefile --name GPT-3-4-Tracker
+          --add-data "app/web;app/web"
+          --distpath dist --workpath build --specpath build
+          run_standalone.py
+      - name: Smoke-test the built exe actually serves
+        shell: pwsh
+        run: |
+          $env:NO_BROWSER = "1"
+          $env:PORT = "8123"
+          $proc = Start-Process -FilePath "dist/GPT-3-4-Tracker.exe" -PassThru
+          $ok = $false
+          for ($i = 0; $i -lt 30; $i++) {
+            Start-Sleep -Seconds 1
+            try {
+              $resp = Invoke-WebRequest -Uri "http://127.0.0.1:8123/api/health" -UseBasicParsing -TimeoutSec 2
+              if ($resp.StatusCode -eq 200) { $ok = $true; break }
+            } catch {}
+          }
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          if (-not $ok) { throw "Built exe never became healthy" }
+          Write-Host "Exe smoke test passed: /api/health responded 200"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GPT-3-4-Tracker-windows-exe
+          path: backend/dist/GPT-3-4-Tracker.exe
+          retention-days: 90

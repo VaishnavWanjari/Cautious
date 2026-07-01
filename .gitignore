@@ -19,6 +19,11 @@ env/
 # ---- Runtime data ----
 backend/data/
 
+# ---- PyInstaller (local exe builds) ----
+backend/build/
+backend/dist/
+*.spec
+
 # ---- Node / Electron ----
 node_modules/
 frontend/dist/
