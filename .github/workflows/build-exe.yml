@@ -25,11 +25,19 @@ jobs:
       - name: Sanity-check the standalone server imports cleanly
         run: python -c "import app.standalone"
       - name: Build single-file executable
-        run: >
-          pyinstaller --onefile --name GPT-3-4-Tracker
-          --add-data "app/web;app/web"
-          --distpath dist --workpath build --specpath build
-          run_standalone.py
+        # NOTE: --add-data's source path is resolved relative to the .spec
+        # file's own location, not the invocation cwd. Since --specpath
+        # defaults to cwd (backend/) here, an absolute source path is used to
+        # stay correct regardless of that (this is what tripped up the first
+        # attempt: an earlier version passed --specpath build, which silently
+        # made PyInstaller look for the data under build/app/web instead).
+        shell: pwsh
+        run: |
+          $webDir = Join-Path (Get-Location) "app\web"
+          pyinstaller --onefile --name GPT-3-4-Tracker `
+            --add-data "$webDir;app/web" `
+            --distpath dist --workpath build `
+            run_standalone.py
       - name: Smoke-test the built exe actually serves
         shell: pwsh
         run: |
