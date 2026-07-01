@@ -104,14 +104,14 @@
       <label class="pmcc">PMCC
         <select id="pmccSel" onchange="setPmcc(this.value)"></select>
       </label>
-      <button class="btn ghost" onclick="resetSeed()">Reset data</button>
       <button class="btn" onclick="recompute()">↻ Recalculate</button>
     </header>
     <section class="view" id="view"></section>
   </main>
 </div>
 <script>
-const TABS = ["Dashboard","PMCCs","Network","Timeline","Gantt","Circuits","Logic","Exports","AI"];
+const TABS = ["Dashboard","Data","PMCCs","Network","Timeline","Gantt","Circuits","Logic","Exports","AI"];
+const NEEDS_DATA = new Set(["Dashboard","PMCCs","Network","Timeline","Gantt","Circuits"]);
 let current = "Dashboard";
 let pmcc = "";          // "" = all PMCCs
 let PMCCS = [];
@@ -135,11 +135,26 @@ function renderNav(){
 }
 function setPmcc(v){ pmcc=v; render(); }
 async function recompute(){ await api("GET","/api/schedule/compute"); render(); }
-async function resetSeed(){ await api("POST","/api/reset",{}); render(); }
+async function refreshPmccList(){
+  PMCCS=await api("GET","/api/pmccs");
+  const sel=document.getElementById("pmccSel");
+  if(sel) sel.innerHTML=`<option value="">All PMCCs</option>`+PMCCS.map(p=>`<option value="${p.no}">${p.no} · ${esc(p.description).slice(0,32)}</option>`).join("");
+}
+
+function renderEmptyHint(v){
+  v.innerHTML=`<h1>${esc(current)}</h1>
+    <div class="hint">
+      <b>No commissioning data yet.</b> This app starts blank — head to the <b>Data</b> tab to
+      download the CSV template, fill it in, and upload it (or load the GPT-3/4 sample data to explore first).
+      <div style="margin-top:10px"><button class="btn" onclick="current='Data';renderNav();render();">Go to Data tab</button></div>
+    </div>`;
+}
 
 async function render(){
   const v=document.getElementById("view");
+  if(NEEDS_DATA.has(current) && PMCCS.length===0) return renderEmptyHint(v);
   if(current==="Dashboard") return renderDashboard(v);
+  if(current==="Data") return renderData(v);
   if(current==="PMCCs") return renderPMCCs(v);
   if(current==="Network") return renderNetwork(v);
   if(current==="Timeline") return renderTimeline(v);
@@ -206,6 +221,123 @@ async function renderDashboard(v){
   if(filtered.length>400) v.appendChild(el(`<div class="muted">Showing first 400 of ${filtered.length}. Filter by a PMCC to narrow down.</div>`));
 }
 
+let dataImportResult=null;
+const WEEKDAY_LABELS=[[1,"Mon"],[2,"Tue"],[3,"Wed"],[4,"Thu"],[5,"Fri"],[6,"Sat"],[7,"Sun"]];
+
+async function renderData(v){
+  const proj=await api("GET","/api/project");
+  const wd=new Set(proj.working_weekdays||[1,2,3,4,5,6,7]);
+  v.innerHTML="";
+  v.appendChild(el(`<h1>Data</h1><div class="muted" style="margin-bottom:12px">This app starts completely blank. Set up your project, then download the CSV template, fill it in with your own PMCCs/circuits, and upload it — that replaces whatever is currently loaded. Sample data is optional.</div>`));
+
+  const proj_p=el(`<div class="panel">
+    <h2>Project Setup</h2>
+    <div class="row" style="margin-bottom:8px">
+      <label class="muted">Name <input id="dpName" value="${esc(proj.name)}" style="min-width:220px"></label>
+      <label class="muted">Client <input id="dpClient" value="${esc(proj.client||'')}"></label>
+      <label class="muted">Location <input id="dpLoc" value="${esc(proj.location||'')}"></label>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <label class="muted">Mechanical Completion <input id="dpMC" type="date" value="${esc(proj.mechanical_completion_date||'')}"></label>
+      <label class="muted">Planned Startup <input id="dpStartup" type="date" value="${esc(proj.planned_startup_date||'')}"></label>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <span class="muted">Working days:</span>
+      ${WEEKDAY_LABELS.map(([n,lbl])=>`<label class="muted"><input type="checkbox" class="dpWd" value="${n}" ${wd.has(n)?'checked':''}> ${lbl}</label>`).join("")}
+    </div>
+    <button class="btn" onclick="dataSaveProject()">Save Project Setup</button>
+  </div>`);
+  v.appendChild(proj_p);
+
+  const tmpl_p=el(`<div class="panel">
+    <h2>CSV Template &amp; Upload</h2>
+    <div class="muted" style="margin-bottom:8px">One flat CSV drives everything: PMCCs, circuits, priorities and PMCC-to-PMCC / circuit-to-circuit dependencies. Download the template, fill it in (delete the example rows), then upload — this <b>replaces all current data</b>.</div>
+    <div class="row" style="margin-bottom:10px">
+      <a class="btn" href="/api/template/csv">Download CSV Template</a>
+      <a class="btn ghost" href="/api/export/template-csv">Export Current Data as CSV</a>
+    </div>
+    <div class="row">
+      <input type="file" id="dpFile" accept=".csv">
+      <button class="btn" onclick="dataUpload()">Upload &amp; Replace All Data</button>
+    </div>
+    <div id="dpResult" style="margin-top:10px"></div>
+  </div>`);
+  v.appendChild(tmpl_p);
+  if(dataImportResult) renderImportResult(tmpl_p.querySelector("#dpResult"), dataImportResult);
+
+  v.appendChild(el(`<div class="panel">
+    <h2>Sample Data &amp; Reset</h2>
+    <div class="row">
+      <button class="btn ghost" onclick="dataLoadSample()">Load Sample Data (GPT-3/4, 21 PMCCs)</button>
+      <button class="btn ghost" onclick="dataClearAll()">Clear All Data</button>
+    </div>
+  </div>`));
+}
+
+function renderImportResult(host, r){
+  if(!host) return;
+  const dupWarnings=r.warnings.filter(w=>w.includes("duplicate"));
+  const otherWarnings=r.warnings.filter(w=>!w.includes("duplicate"));
+  let html="";
+  if(r.ok){
+    html+=`<div style="color:#15803d;font-weight:600">✓ Imported ${r.pmccs} PMCCs · ${r.circuits} circuits · ${r.buildings} building blocks · ${r.activities} activities</div>`;
+  } else {
+    html+=`<div class="err" style="font-weight:600">✕ Import failed — no data was changed</div>`;
+  }
+  r.errors.forEach(e=>html+=`<div class="err">✕ ${esc(e)}</div>`);
+  if(dupWarnings.length){
+    html+=`<div style="margin-top:6px;background:#fff3ee;border:1px solid #fbb99a;border-radius:8px;padding:8px">
+      <b style="color:#b3411f">Duplicate rows skipped (${dupWarnings.length}):</b>
+      ${dupWarnings.map(w=>`<div class="warn" style="background:#ffe4d5;border-radius:4px;padding:2px 6px;margin-top:3px">${esc(w)}</div>`).join("")}
+    </div>`;
+  }
+  otherWarnings.forEach(w=>html+=`<div class="warn">⚠ ${esc(w)}</div>`);
+  host.innerHTML=html;
+}
+
+async function dataSaveProject(){
+  const working_weekdays=[...document.querySelectorAll(".dpWd:checked")].map(el=>Number(el.value));
+  await api("PUT","/api/project",{
+    name:document.getElementById("dpName").value,
+    client:document.getElementById("dpClient").value,
+    location:document.getElementById("dpLoc").value,
+    mechanical_completion_date:document.getElementById("dpMC").value,
+    planned_startup_date:document.getElementById("dpStartup").value,
+    working_weekdays,
+  });
+  render();
+}
+
+async function dataUpload(){
+  const f=document.getElementById("dpFile").files[0];
+  if(!f){ alert("Choose a CSV file first."); return; }
+  if(!confirm("This replaces ALL current PMCCs, circuits and activities with what's in this file. Continue?")) return;
+  const text=await f.text();
+  try{
+    dataImportResult=await api("POST","/api/import/csv",{csv:text});
+  }catch(e){
+    dataImportResult={ok:false,errors:[String(e)],warnings:[],pmccs:0,circuits:0,buildings:0,activities:0};
+  }
+  await refreshPmccList();
+  render();
+}
+
+async function dataLoadSample(){
+  if(!confirm("This replaces ALL current data with the GPT-3/4 sample dataset (21 PMCCs). Continue?")) return;
+  dataImportResult=null;
+  await api("POST","/api/reset",{});
+  await refreshPmccList();
+  render();
+}
+
+async function dataClearAll(){
+  if(!confirm("This permanently clears ALL PMCCs, circuits and activities. Continue?")) return;
+  dataImportResult=null;
+  await api("POST","/api/reset-blank",{});
+  await refreshPmccList();
+  render();
+}
+
 async function renderPMCCs(v){
   const s=await api("GET","/api/summary");
   const roll={}; s.pmcc_rollup.forEach(r=>roll[r.no]=r);
@@ -222,27 +354,86 @@ async function renderPMCCs(v){
       <tbody>${rows}</tbody></table></div>`;
 }
 
+function wrapText2(s,maxLen){
+  s=s||""; if(s.length<=maxLen) return [s,""];
+  let cut=s.lastIndexOf(" ",maxLen); if(cut<0) cut=maxLen;
+  return [s.slice(0,cut), s.slice(cut+1,cut+1+maxLen)+(s.length>cut+1+maxLen?"…":"")];
+}
+
 async function renderNetworkOverview(v){
   const data=await api("GET","/api/timeline");
   const rows=data.pmcc_rows;
-  const W=205,H=88,GX=225,GY=104,cols=6,padX=20,padY=20;
-  const cards=rows.map((r,i)=>{ const x=padX+(i%cols)*GX, y=padY+Math.floor(i/cols)*GY;
-    const stroke=r.critical?"#e4572e":"#cbd5e1", head=r.critical?"#b3411f":"#1f4e78";
-    return `<g class="net-pmcc" data-no="${esc(r.no)}" style="cursor:pointer">
-      <rect x="${x}" y="${y}" width="${W}" height="${H}" rx="9" fill="#fff" stroke="${stroke}" stroke-width="${r.critical?2:1}"/>
-      <rect x="${x}" y="${y}" width="${W}" height="22" rx="9" fill="${head}"/><rect x="${x}" y="${y+11}" width="${W}" height="11" fill="${head}"/>
-      <text x="${x+9}" y="${y+16}" fill="#fff" font-size="12" font-weight="700">${esc(r.no)}</text>
-      <text x="${x+9}" y="${y+38}" font-size="10.5" fill="#334155">${esc(r.description).slice(0,26)}</text>
-      <text x="${x+9}" y="${y+56}" font-size="10" fill="#64748b">${r.activities} activities${r.manual?' · adjusted':''}</text>
-      <text x="${x+9}" y="${y+72}" font-size="10" fill="#64748b">${esc(r.start)} → ${esc(r.finish)}</text>
-    </g>`;}).join("");
-  const svgW=padX*2+cols*GX, svgH=padY*2+Math.ceil(rows.length/cols)*GY;
+  const W=205,H=96,GX=232,GY=124,cols=5,padX=24,padY=54;
+  const cats=["Non-Process","Utility","Process"];
+  const byCat={}; cats.forEach(c=>byCat[c]=[]);
+  rows.forEach(r=>{ (byCat[r.category]=byCat[r.category]||(byCat[r.category]=[])).push(r); });
+  const catOrder=[...cats.filter(c=>byCat[c]&&byCat[c].length), ...Object.keys(byCat).filter(c=>!cats.includes(c)&&byCat[c].length)];
+
+  const pos={}; // no -> {x,y}
+  let cards="", labels="", yCursor=padY;
+  catOrder.forEach(cat=>{
+    const items=byCat[cat];
+    labels+=`<text x="${padX}" y="${yCursor-16}" font-size="12.5" font-weight="700" fill="#1F4E78">${esc(cat)}</text>`;
+    const rowsInCat=Math.ceil(items.length/cols);
+    items.forEach((r,i)=>{
+      const x=padX+(i%cols)*GX, y=yCursor+Math.floor(i/cols)*GY;
+      pos[r.no]={x,y};
+      const stroke=r.critical?"#e4572e":"#cbd5e1", head=r.critical?"#b3411f":"#1f4e78";
+      const [l1,l2]=wrapText2(r.description,24);
+      cards+=`<g class="net-pmcc" data-no="${esc(r.no)}" style="cursor:pointer">
+        <rect x="${x}" y="${y}" width="${W}" height="${H}" rx="9" fill="#fff" stroke="${stroke}" stroke-width="${r.critical?2:1}"/>
+        <rect x="${x}" y="${y}" width="${W}" height="22" rx="9" fill="${head}"/><rect x="${x}" y="${y+11}" width="${W}" height="11" fill="${head}"/>
+        <text x="${x+9}" y="${y+16}" fill="#fff" font-size="12" font-weight="700">${esc(r.no)}${r.priority?(' · P'+r.priority):''}</text>
+        <text x="${x+9}" y="${y+37}" font-size="10.5" fill="#334155">${esc(l1)}</text>
+        <text x="${x+9}" y="${y+50}" font-size="10.5" fill="#334155">${esc(l2)}</text>
+        <text x="${x+9}" y="${y+68}" font-size="10" fill="#64748b">${r.activities} activities${r.manual?' · adjusted':''}</text>
+        <text x="${x+9}" y="${y+84}" font-size="10" fill="#64748b">${esc(r.start)} → ${esc(r.finish)}</text>
+      </g>`;
+    });
+    yCursor += rowsInCat*GY + 48;
+  });
+
+  // connectors: draw an arrow from every dependency PMCC to each PMCC that depends on it
+  let lines="";
+  rows.forEach(r=>{
+    (r.depends_on||[]).forEach(dep=>{
+      const a=pos[dep], b=pos[r.no];
+      if(!a||!b) return;
+      const x1=a.x+W, y1=a.y+H/2, x2=b.x, y2=b.y+H/2;
+      const mx=(x1+x2)/2;
+      const path = (Math.abs(y1-y2)<2) ? `M${x1},${y1} L${x2},${y2}` : `M${x1},${y1} H${mx} V${y2} H${x2}`;
+      lines+=`<path d="${path}" fill="none" stroke="#c2410c" stroke-width="1.6" stroke-dasharray="4 2" marker-end="url(#arrow2)"/>`;
+    });
+  });
+
+  const svgW=padX*2+cols*GX, svgH=yCursor+20;
   v.innerHTML=`<h1>Visual Logic Network — All PMCCs</h1>
-    <div class="muted" style="margin-bottom:8px">${rows.length} PMCCs across the whole train. Click a PMCC to drill into its commissioning circuits (subsystem-wise) and each circuit's activity precedence network (activity-wise). Critical PMCCs outlined in orange.</div>
-    <div class="panel" style="overflow:auto;max-height:76vh"><svg width="${svgW}" height="${svgH}">${cards}</svg></div>`;
+    <div class="muted" style="margin-bottom:8px">${rows.length} PMCCs grouped by category (Non-Process / Utility / Process). Dashed orange arrows show real PMCC-to-PMCC dependencies (from your CSV's <code>depends_on</code> links) — these drive actual scheduling constraints, not just the picture. Click a PMCC to drill into its circuits. Drag the background to pan.</div>
+    <div class="panel pannable" id="netPan" style="overflow:auto;max-height:76vh;cursor:grab"><svg width="${svgW}" height="${svgH}">
+      <defs><marker id="arrow2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L7,3 L0,6 Z" fill="#c2410c"/></marker></defs>
+      ${labels}${lines}${cards}
+    </svg></div>`;
   v.querySelectorAll(".net-pmcc").forEach(g=>g.addEventListener("click",()=>{
     pmcc=g.dataset.no; const sel=document.getElementById("pmccSel"); if(sel) sel.value=pmcc; render();
   }));
+  initPan(document.getElementById("netPan"));
+}
+
+// generic drag-to-pan for any scrollable .pannable container (network diagrams)
+function initPan(container){
+  if(!container) return;
+  let panning=false, sx=0, sy=0, sl=0, st=0;
+  container.addEventListener("mousedown", e=>{
+    if(e.target.closest(".net-pmcc")) return; // don't hijack node clicks in the overview
+    panning=true; sx=e.pageX; sy=e.pageY; sl=container.scrollLeft; st=container.scrollTop;
+    container.style.cursor="grabbing";
+  });
+  window.addEventListener("mousemove", e=>{
+    if(!panning) return;
+    container.scrollLeft=sl-(e.pageX-sx);
+    container.scrollTop=st-(e.pageY-sy);
+  });
+  window.addEventListener("mouseup", ()=>{ panning=false; container.style.cursor="grab"; });
 }
 
 async function renderNetwork(v){
@@ -286,12 +477,13 @@ async function renderNetwork(v){
       <text x="${x+8}" y="${y+52}" font-size="10" fill="#64748b">${esc(d.startDate)||'—'} → ${esc(d.finishDate)||'—'}</text>
       <text x="${x+8}" y="${y+68}" font-size="10" fill="#64748b">Float ${d.totalFloat??'—'} · Prio ${esc(d.priority)}</text></g>`;}).join("");
   v.innerHTML=`<h1>Visual Logic Network — ${esc(pmcc)} <a href="#" onclick="pmcc='';document.getElementById('pmccSel').value='';render();return false;" style="font-size:12px;font-weight:400;color:var(--epc)">← All PMCCs</a></h1>
-    <div class="muted" style="margin-bottom:8px">${net.nodes.length} activities across ${order.length} circuits. Each circuit is a precedence network — parallel Leak Test / Loop Check branches — drawn with orthogonal connectors. Critical path in orange.</div>
-    <div class="panel" style="overflow:auto;max-height:72vh">
+    <div class="muted" style="margin-bottom:8px">${net.nodes.length} activities across ${order.length} circuits. Each circuit is a precedence network — parallel Leak Test / Loop Check branches — drawn with orthogonal connectors. Critical path in orange. Drag the background to pan.</div>
+    <div class="panel" id="circPan" style="overflow:auto;max-height:72vh;cursor:grab">
       <svg width="${svgW}" height="${svgH}">
         <defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L7,3 L0,6 Z" fill="#7c8aa0"/></marker></defs>
         ${labels}${lines}${cards}
       </svg></div>`;
+  initPan(document.getElementById("circPan"));
 }
 
 function tlSetZoom(z){ tlPxDay=Number(z); render(); }
@@ -556,9 +748,7 @@ window.addEventListener("hashchange",()=>{ applyHash(); renderNav(); render(); }
 (async function init(){
   renderNav();
   try{
-    PMCCS=await api("GET","/api/pmccs");
-    const sel=document.getElementById("pmccSel");
-    sel.innerHTML=`<option value="">All PMCCs</option>`+PMCCS.map(p=>`<option value="${p.no}">${p.no} · ${esc(p.description).slice(0,32)}</option>`).join("");
+    await refreshPmccList();
     const h=await api("GET","/api/health"); document.getElementById("aifoot").textContent="AI: "+(h.ai_available?"Online":"Offline")+" · standalone";
   }catch(e){}
   applyHash();
