@@ -1,7 +1,7 @@
 {
   "name": "commissioning-scheduler-pro",
   "version": "0.1.0",
-  "description": "EPC pre-commissioning & commissioning planning desktop app: backward scheduling, critical path, editable visual logic networks, Gantt and reporting.",
+  "description": "GPT-3/4 Gas Processing Train — Pre-Commissioning Tracker & Visualizer. EPC pre-commissioning desktop app: backward scheduling, critical path, agile drag-to-reschedule SIMOPS timeline, visual logic networks, Gantt and reporting.",
   "author": "Commissioning Scheduler Pro",
   "license": "MIT",
   "main": "dist-electron/main.js",
@@ -35,7 +35,7 @@
   },
   "build": {
     "appId": "com.commissioning.scheduler",
-    "productName": "Commissioning Scheduler Pro",
+    "productName": "GPT-3-4 Gas Processing Train",
     "directories": {
       "output": "release"
     },
@@ -57,10 +57,10 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "Commissioning-Scheduler-Pro-Setup-${version}.${ext}"
+      "artifactName": "GPT-3-4-Tracker-Setup-${version}.${ext}"
     },
     "portable": {
-      "artifactName": "Commissioning-Scheduler-Pro-Portable-${version}.${ext}"
+      "artifactName": "GPT-3-4-Tracker-Portable-${version}.${ext}"
     }
   }
 }

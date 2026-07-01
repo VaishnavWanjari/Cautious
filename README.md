@@ -110,34 +110,48 @@ admin, no installer, no pip/npm and no internet, against either an existing
 Python (`py` launcher) or a bundled portable Python you simply unzip. Full
 step-by-step in **[docs/WINDOWS-NO-ADMIN.md](docs/WINDOWS-NO-ADMIN.md)**.
 
-## Full desktop app on Windows — no administrator needed
+## Desktop app (Electron window, not just a browser tab)
+
+The Electron shell spawns the same zero-dependency standalone server described
+above and loads it directly in a native window — **no `pip install` needed**,
+just Node.js to run/build the Electron shell and a system Python for the
+backend it wraps.
 
 1. Install [Python 3.11+](https://python.org) (tick *Add Python to PATH*) and
-   [Node.js 18+](https://nodejs.org).
-2. Double-click **`setup-windows.bat`** (one-time: creates the backend venv and
-   installs dependencies).
-3. Double-click **`run-windows.bat`** to launch the backend and the desktop app.
+   [Node.js 18+](https://nodejs.org). No admin rights required for either.
+2. `cd frontend && npm install` (one-time).
+3. `npm run dev:electron` — opens the real desktop window immediately, with
+   the full GPT-3/4 tracker including the draggable SIMOPS timeline.
+4. To build a standalone installer/portable `.exe` you can hand to someone
+   else: `npm run build` (output under `frontend/release/`) — see
+   [Build a Windows installer](#build-a-windows-installer) below.
+
+On a locked-down machine with no admin and no internet, use
+`run-portable-windows.bat` instead (browser tab rather than a native window,
+but otherwise identical) — see
+[docs/WINDOWS-NO-ADMIN.md](docs/WINDOWS-NO-ADMIN.md).
 
 ## Run from source (any OS)
 
 ```bash
-# Backend
+# Standalone backend the Electron shell wraps (stdlib only, no pip install)
 cd backend
-python -m venv .venv && . .venv/bin/activate     # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload                     # http://127.0.0.1:8000
+python run_standalone.py                          # http://127.0.0.1:8000
 
-# Frontend (separate terminal)
+# Frontend / Electron shell (separate terminal)
 cd frontend
 npm install
-npm run dev            # browser dev server at http://localhost:5173
-# or
-npm run dev:electron   # full Electron desktop shell
+npm run dev:electron   # desktop window, loads the backend above directly
 ```
 
-A sample **LNG Train 1** project (PMCC-01 → Condensate Stabilizer / Slug Catcher
-/ Fuel Gas with the Hydrotest → Dewatering → Drying → Reinstatement → Leak Test
-chain) is seeded on first launch so every screen is populated immediately.
+The full FastAPI + SQLAlchemy backend (`uvicorn app.main:app --reload`, after
+`pip install -r requirements.txt`) remains available for the richer Excel/PDF
+export and persistent-database path; it is not what the packaged desktop app
+loads by default today.
+
+A **GPT-3/4 Gas Processing Train** project is seeded on first launch — the
+21-PMCC handover sequence and ~155 commissioning circuits with their
+precedence networks — so every screen is populated immediately.
 
 ## Enable the AI assistant (optional)
 
