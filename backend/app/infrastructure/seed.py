@@ -46,8 +46,8 @@ def _seed_project(session: Session) -> None:
         name="GPT-3/4 Gas Processing Train",
         client="Gas Processing Plant",
         location="GPT-3/4",
-        mechanical_completion_date=date(2027, 12, 31),
-        planned_startup_date=date(2028, 1, 31),
+        mechanical_completion_date=date(2027, 4, 26),
+        planned_startup_date=date(2027, 5, 26),
         working_weekdays="1,2,3,4,5,6",
         holidays="",
     )

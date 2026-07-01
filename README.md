@@ -36,6 +36,13 @@ filter everything by PMCC.
   to auto-create Finish-to-Start links, with critical activities highlighted and
   auto-layout. Supports FS/SS/FF/SF relationships with lead/lag.
 - **Interactive Gantt** with critical-path highlight and a critical-only filter.
+- **Agile SIMOPS Timeline** (standalone build) — every PMCC on one calendar axis,
+  each PMCC its own independent Mechanical Completion date (default 26-Apr-2027,
+  editable). **Drag a whole PMCC bar** to shift every one of its activities
+  together; **click a PMCC** to expand its circuits/activities inline, each
+  individually **draggable** — dependent activities cascade forward automatically,
+  and every change is reflected immediately in the same sheet. "Reset drags"
+  clears manual adjustments back to the pure backward-CPM schedule.
 - **No-code logic engine** — author rules in plain language
   (`IF Hydrotest Complete AND Nitrogen Available THEN Enable Leak Test`) with
   AND/OR/NOT and nesting.

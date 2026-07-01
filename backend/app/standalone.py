@@ -22,11 +22,12 @@ import json
 import os
 import re
 import threading
-from datetime import date
+from datetime import date, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from .application.graph import DiGraph
 from .application.logic_engine import compile_rule
 from .application.network import build_network
 from .application.scheduler import compute_schedule
@@ -59,11 +60,18 @@ class Store:
             "subtitle": "Pre-Commissioning Tracker & Visualizer",
             "client": "Gas Processing Plant",
             "location": "GPT-3/4",
-            "mechanical_completion_date": "2027-12-31",
-            "planned_startup_date": "2028-01-31",
+            # Default Mechanical Completion date — this is each PMCC's own last
+            # date unless the user drags that PMCC's bar to its own target.
+            "mechanical_completion_date": "2027-04-26",
+            "planned_startup_date": "2027-05-26",
             "working_weekdays": [1, 2, 3, 4, 5, 6],
             "holidays": [],
         }
+        # Per-PMCC finish-date override (drag the whole PMCC bar) — keyed by PMCC no.
+        # Absent = use the project's mechanical_completion_date as that PMCC's anchor.
+        self.pmcc_finish: dict[str, str] = {}
+        # Per-activity manual start override (drag a single activity) — keyed by id.
+        self.manual_start: dict[int, str] = {}
         self.pmccs = [
             {
                 "seq": seq,
@@ -176,6 +184,8 @@ class Store:
                 self.activities = data["activities"]
                 self.relationships = data["relationships"]
                 self.logic_rules = data.get("logic_rules", [])
+                self.pmcc_finish = data.get("pmcc_finish", {})
+                self.manual_start = {int(k): v for k, v in data.get("manual_start", {}).items()}
                 self._next = data.get("_next", self._next)
             except Exception:
                 pass
@@ -191,6 +201,8 @@ class Store:
                     "activities": self.activities,
                     "relationships": self.relationships,
                     "logic_rules": self.logic_rules,
+                    "pmcc_finish": self.pmcc_finish,
+                    "manual_start": self.manual_start,
                     "_next": self._next,
                 },
                 indent=2,
@@ -233,41 +245,150 @@ class Store:
         ]
         return nodes, edges
 
+    def _pmcc_anchor(self, pmcc_no: str) -> date:
+        """Each PMCC's own last date: its drag override, else the project MC date."""
+        iso = self.pmcc_finish.get(pmcc_no) or self.project["mechanical_completion_date"]
+        return date.fromisoformat(iso)
+
+    def _apply_manual_overrides(
+        self, acts: list[dict], rels: list[dict], calendar: WorkCalendar
+    ) -> None:
+        """Overlay per-activity drag pins on top of the natural CPM dates.
+
+        Walks the circuit's activities in topological order; a pinned activity's
+        start is forced to its manual date, and every activity's start is then
+        floored at whatever its predecessors' (already-resolved) finish + lag
+        requires — so dragging one activity later pushes its dependents with it,
+        while dragging earlier is only honoured as far as the logic network
+        allows. Un-pinned activities with no manual override keep their natural
+        CPM date unless a pinned ancestor pushes them out.
+        """
+        g = DiGraph()
+        by_id = {a["id"]: a for a in acts}
+        for a in acts:
+            g.add_node(a["id"])
+        for r in rels:
+            if r["predecessor_id"] in by_id and r["successor_id"] in by_id:
+                g.add_edge(r["predecessor_id"], r["successor_id"], rel=r)
+        try:
+            order = g.topological_sort()
+        except ValueError:
+            return  # cyclic — leave the natural CPM dates in place
+
+        for nid in order:
+            a = by_id[nid]
+            if not a.get("start_date"):
+                continue
+            pin = self.manual_start.get(nid)
+            candidate = date.fromisoformat(pin) if pin else date.fromisoformat(a["start_date"])
+
+            floor: date | None = None
+            for pred_id in g.predecessors(nid):
+                pred = by_id.get(pred_id)
+                if not pred or not pred.get("start_date"):
+                    continue
+                rel = g.edge_attr(pred_id, nid)["rel"]
+                lag = rel.get("lag", 0)
+                rtype = rel.get("rel_type", "FS")
+                p_start = date.fromisoformat(pred["start_date"])
+                p_finish = date.fromisoformat(pred["finish_date"])
+                if rtype == "SS":
+                    req = calendar.add_working_days(p_start, lag)
+                elif rtype == "FF":
+                    req = calendar.start_of(calendar.add_working_days(p_finish, lag), a["duration"])
+                elif rtype == "SF":
+                    req = calendar.start_of(calendar.add_working_days(p_start, lag), a["duration"])
+                else:  # FS
+                    req = calendar.add_working_days(p_finish, 1 + lag)
+                floor = req if floor is None else max(floor, req)
+
+            effective = candidate if floor is None else max(candidate, floor)
+            effective = calendar.next_working_day(effective)
+            a["start_date"] = effective.isoformat()
+            a["finish_date"] = calendar.finish_of(effective, a["duration"]).isoformat()
+            a["is_manual"] = nid in self.manual_start
+
     def compute(self) -> dict:
-        nodes, edges = self._domain()
-        mc = date.fromisoformat(self.project["mechanical_completion_date"])
-        res = compute_schedule(nodes, edges, self._calendar(), mc)
-        by = {a["id"]: a for a in self.activities}
-        out = []
-        for n in res.activities:
-            a = by[int(n.id)]
-            a["es"], a["ef"], a["ls"], a["lf"] = n.es, n.ef, n.ls, n.lf
-            a["total_float"], a["is_critical"] = n.total_float, n.is_critical
-            a["start_date"] = n.start_date.isoformat() if n.start_date else None
-            a["finish_date"] = n.finish_date.isoformat() if n.finish_date else None
+        """Run backward CPM **per PMCC**, each anchored at its own last date.
+
+        PMCCs are independent handover packages (circuits never cross a PMCC
+        boundary), so grouping the CPM run this way lets every PMCC carry its
+        own Mechanical Completion date — dragging one PMCC's bar only moves
+        that PMCC. Manual per-activity drags are then layered on top.
+        """
+        calendar = self._calendar()
+        by_pmcc: dict[str, list[dict]] = {}
+        for a in self.activities:
+            by_pmcc.setdefault(a["pmcc_no"], []).append(a)
+
+        out: list[dict] = []
+        critical_path: list[int] = []
+        proj_start: date | None = None
+        proj_finish: date | None = None
+        warnings: list[str] = []
+
+        for pmcc_no, acts in by_pmcc.items():
+            ids = {a["id"] for a in acts}
+            rels = [
+                r for r in self.relationships
+                if r["predecessor_id"] in ids and r["successor_id"] in ids
+            ]
+            nodes = [
+                ActivityNode(
+                    id=str(a["id"]), name=a["name"], duration=a["duration"],
+                    code=a["activity_id"], discipline=a["discipline"], status=a["status"],
+                )
+                for a in acts
+            ]
+            edges = [
+                Edge(str(r["predecessor_id"]), str(r["successor_id"]), RelationType(r["rel_type"]), r["lag"])
+                for r in rels
+            ]
+            anchor = self._pmcc_anchor(pmcc_no)
+            res = compute_schedule(nodes, edges, calendar, anchor)
+            warnings.extend(f"[{pmcc_no}] {w}" for w in res.warnings)
+
+            by_id = {a["id"]: a for a in acts}
+            for n in res.activities:
+                a = by_id[int(n.id)]
+                a["es"], a["ef"], a["ls"], a["lf"] = n.es, n.ef, n.ls, n.lf
+                a["total_float"], a["is_critical"] = n.total_float, n.is_critical
+                a["start_date"] = n.start_date.isoformat() if n.start_date else None
+                a["finish_date"] = n.finish_date.isoformat() if n.finish_date else None
+
+            self._apply_manual_overrides(acts, rels, calendar)
+
+            if res.project_start and (proj_start is None or res.project_start < proj_start):
+                proj_start = res.project_start
+            if res.project_finish and (proj_finish is None or res.project_finish > proj_finish):
+                proj_finish = res.project_finish
+            critical_path.extend(int(x) for x in res.critical_path)
+
+        for a in self.activities:
             out.append(
                 {
-                    "id": int(n.id),
+                    "id": a["id"],
                     "activity_id": a["activity_id"],
-                    "name": n.name,
-                    "duration": n.duration,
-                    "es": n.es,
-                    "ef": n.ef,
-                    "ls": n.ls,
-                    "lf": n.lf,
-                    "total_float": n.total_float,
-                    "is_critical": n.is_critical,
-                    "start_date": a["start_date"],
-                    "finish_date": a["finish_date"],
+                    "name": a["name"],
+                    "duration": a["duration"],
+                    "es": a.get("es"),
+                    "ef": a.get("ef"),
+                    "ls": a.get("ls"),
+                    "lf": a.get("lf"),
+                    "total_float": a.get("total_float"),
+                    "is_critical": a.get("is_critical", False),
+                    "start_date": a.get("start_date"),
+                    "finish_date": a.get("finish_date"),
+                    "is_manual": a.get("is_manual", False),
                     "status": a["status"],
                 }
             )
         return {
             "activities": out,
-            "critical_path": [int(x) for x in res.critical_path],
-            "project_start": res.project_start.isoformat() if res.project_start else None,
-            "project_finish": res.project_finish.isoformat() if res.project_finish else None,
-            "warnings": res.warnings,
+            "critical_path": critical_path,
+            "project_start": proj_start.isoformat() if proj_start else None,
+            "project_finish": proj_finish.isoformat() if proj_finish else None,
+            "warnings": warnings,
         }
 
     def network(self, pmcc: str | None = None) -> dict:
@@ -343,16 +464,60 @@ class Store:
         }
 
     def timeline(self, pmcc: str | None = None) -> dict:
-        """Time-phased data: circuits with date spans + per-activity dates/preds.
+        """Time-phased data: PMCC blocks + (optionally) their circuits/activities.
 
-        Drives the SIMOPS timeline — circuits laid on a calendar axis so parallel
-        (overlapping) vs series (sequential) work across subsystems is visible.
+        Drives the SIMOPS timeline. ``pmcc_rows`` is always computed across the
+        *whole* train (one aggregate bar per PMCC, its own start/finish span) so
+        the top-level view is always "all PMCCs clubbed" regardless of the page
+        filter; ``circuits`` drills into one PMCC's circuits + activities when
+        expanded.
         """
         sched = self.compute()
-        acts = self.activities if not pmcc else [a for a in self.activities if a.get("pmcc_no") == pmcc]
+        sched_by = {a["id"]: a for a in sched["activities"]}
+
+        def merged(a: dict) -> dict:
+            s = sched_by.get(a["id"], {})
+            m = dict(a)
+            m.update(
+                {
+                    k: s.get(k)
+                    for k in ("start_date", "finish_date", "is_critical", "total_float", "is_manual")
+                }
+            )
+            return m
+
+        all_acts = [merged(a) for a in self.activities]
+
         preds: dict[int, list[int]] = {}
         for r in self.relationships:
             preds.setdefault(r["successor_id"], []).append(r["predecessor_id"])
+
+        # PMCC-level aggregate rows — always all PMCCs (the "clubbed" overview).
+        pmcc_rows = []
+        for p in self.pmccs:
+            pa = [a for a in all_acts if a["pmcc_no"] == p["no"]]
+            starts = [a["start_date"] for a in pa if a.get("start_date")]
+            finishes = [a["finish_date"] for a in pa if a.get("finish_date")]
+            if not starts:
+                continue
+            pmcc_rows.append(
+                {
+                    "no": p["no"],
+                    "seq": p["seq"],
+                    "category": p["category"],
+                    "description": p["description"],
+                    "start": min(starts),
+                    "finish": max(finishes),
+                    "critical": any(a.get("is_critical") for a in pa),
+                    "manual": any(a.get("is_manual") for a in pa),
+                    "activities": len(pa),
+                    "finish_override": self.pmcc_finish.get(p["no"]),
+                }
+            )
+        pmcc_rows.sort(key=lambda r: r["start"])
+
+        # Circuit/activity drill-down, respecting the requested PMCC filter.
+        acts = all_acts if not pmcc else [a for a in all_acts if a["pmcc_no"] == pmcc]
         by_code: dict[str, list[dict]] = {}
         for a in acts:
             by_code.setdefault(a["circuit"], []).append(a)
@@ -374,10 +539,12 @@ class Store:
                             "id": a["id"],
                             "name": a["name"],
                             "discipline": a["discipline"],
+                            "duration": a["duration"],
                             "start": a.get("start_date"),
                             "finish": a.get("finish_date"),
                             "critical": a.get("is_critical", False),
                             "float": a.get("total_float"),
+                            "is_manual": a.get("is_manual", False),
                             "preds": preds.get(a["id"], []),
                         }
                         for a in items
@@ -388,8 +555,9 @@ class Store:
         return {
             "project_start": sched["project_start"],
             "project_finish": sched["project_finish"],
-            "mechanical_completion": self.project["mechanical_completion_date"],
+            "mechanical_completion_date": self.project["mechanical_completion_date"],
             "filter_pmcc": pmcc,
+            "pmcc_rows": pmcc_rows,
             "circuits": circuits,
         }
 
@@ -528,6 +696,53 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         body = self._read_json()
         with STORE.lock:
+            # --- drag the whole PMCC bar: shift its target finish date, carrying
+            # every activity (including already-pinned ones) by the same delta ---
+            m = re.match(r"/api/pmcc/([\w-]+)/finish$", path)
+            if m:
+                pmcc_no = m.group(1)
+                finish = body.get("finish")
+                if not finish:
+                    return self._json({"error": "finish required"}, 400)
+                sched = STORE.compute()
+                sched_by = {a["id"]: a for a in sched["activities"]}
+                pmcc_ids = [a["id"] for a in STORE.activities if a["pmcc_no"] == pmcc_no]
+                finishes = [
+                    sched_by[i]["finish_date"] for i in pmcc_ids
+                    if sched_by.get(i) and sched_by[i].get("finish_date")
+                ]
+                old_finish = max(finishes) if finishes else None
+                STORE.pmcc_finish[pmcc_no] = finish
+                if old_finish:
+                    delta = (date.fromisoformat(finish) - date.fromisoformat(old_finish)).days
+                    if delta:
+                        for aid in pmcc_ids:
+                            if aid in STORE.manual_start:
+                                shifted = date.fromisoformat(STORE.manual_start[aid]) + timedelta(days=delta)
+                                STORE.manual_start[aid] = shifted.isoformat()
+                STORE.save()
+                return self._json({"ok": True, "pmcc_no": pmcc_no, "finish": finish})
+            m = re.match(r"/api/pmcc/([\w-]+)/clear-finish$", path)
+            if m:
+                STORE.pmcc_finish.pop(m.group(1), None)
+                STORE.save()
+                return self._json({"ok": True})
+            # --- drag a single activity: manual start-date pin ---
+            m = re.match(r"/api/activities/(\d+)/reschedule$", path)
+            if m:
+                aid = int(m.group(1))
+                start = body.get("start")
+                if start:
+                    STORE.manual_start[aid] = start
+                else:
+                    STORE.manual_start.pop(aid, None)
+                STORE.save()
+                return self._json({"ok": True, "id": aid, "start": start})
+            if path == "/api/reset-adjustments":
+                STORE.pmcc_finish.clear()
+                STORE.manual_start.clear()
+                STORE.save()
+                return self._json({"ok": True})
             if path == "/api/activities":
                 aid = STORE.next_id("activity")
                 seq = (len(STORE.activities) + 1) * 10
@@ -580,6 +795,13 @@ class Handler(BaseHTTPRequestHandler):
     def do_PUT(self):
         path = urlparse(self.path).path
         body = self._read_json()
+        if path == "/api/project":
+            with STORE.lock:
+                for k in ("mechanical_completion_date", "planned_startup_date", "name", "client", "location"):
+                    if body.get(k):
+                        STORE.project[k] = body[k]
+                STORE.save()
+                return self._json(STORE.project)
         m = re.match(r"/api/activities/(\d+)$", path)
         if m:
             with STORE.lock:
