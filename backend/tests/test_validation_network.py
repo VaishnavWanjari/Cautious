@@ -6,7 +6,10 @@ from app.application.network import build_network
 from app.application.validation import validate_network
 
 
-def test_detects_orphan_and_endpoints():
+def test_detects_orphan_but_not_legitimate_start_end_nodes():
+    # A (start, no predecessor) -> B (end, no successor) is a normal, complete
+    # two-node chain — neither end should be flagged. Only the truly
+    # unconnected ORPH activity (no predecessor AND no successor) should warn.
     acts = [
         ActivityNode(id="A", name="A", duration=1),
         ActivityNode(id="B", name="B", duration=1),
@@ -14,9 +17,8 @@ def test_detects_orphan_and_endpoints():
     ]
     edges = [Edge("A", "B", RelationType.FS)]
     warnings, errors = validate_network(acts, edges)
-    assert any("Orphan" in w for w in warnings)
-    assert any("predecessor" in w.lower() for w in warnings)  # A is a start node
-    assert any("successor" in w.lower() for w in warnings)  # B is an end node
+    assert len(warnings) == 1
+    assert "Orphan" in warnings[0]  # names the ORPH activity
     assert errors == []
 
 

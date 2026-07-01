@@ -76,6 +76,9 @@
   .tl-bar.crit { background:var(--crit); }
   .tl-bar.manual { outline:2px solid #f59e0b; outline-offset:1px; }
   .tl-bar:active,.tl-bar.dragging { cursor:grabbing; opacity:.85; z-index:9; }
+  .tl-resize { position:absolute; top:0; right:0; bottom:0; width:7px; cursor:ew-resize; background:rgba(255,255,255,.0); }
+  .tl-resize:hover, .tl-resize.resizing { background:rgba(255,255,255,.55); }
+  .tl-bar.resizing { opacity:.9; z-index:9; }
   .tl-mc { position:absolute; top:0; bottom:0; border-left:2px dashed #16a34a; z-index:3; pointer-events:none; }
   .tl-mc-lab { position:absolute; top:36px; font-size:9px; color:#16a34a; background:#fff; padding:0 3px; z-index:3; }
   .tl-ctrl { display:flex; gap:16px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
@@ -147,6 +150,10 @@ async function render(){
   if(current==="AI") return renderAI(v);
 }
 
+let dashFilter=null; // null | 'completed' | 'in_progress' | 'pending' | 'critical'
+function dashSetFilter(f){ dashFilter = (dashFilter===f? null : f); render(); }
+function dashGoCircuits(){ current="Circuits"; renderNav(); render(); }
+
 async function renderDashboard(v){
   const s=await api("GET","/api/summary"+q());
   const val=await api("GET","/api/validate"+q());
@@ -156,9 +163,22 @@ async function renderDashboard(v){
   v.appendChild(el(`<div><h1>${esc(s.project.name)} — ${scope}</h1>
     <div class="muted">${esc(s.project.client)} · Mechanical Completion ${esc(s.project.mechanical_completion_date)} · Planned Startup ${esc(s.project.planned_startup_date)}</div></div>`));
   const cards=el(`<div class="cards"></div>`);
-  [["Circuits",s.circuits,""],["Activities",s.total_activities,""],["Completed",s.completed,""],
-   ["In Progress",s.in_progress,""],["Pending",s.pending,""],["Critical",s.critical,"crit"],["Readiness %",readiness,""]]
-   .forEach(([l,n,c])=>cards.appendChild(el(`<div class="card"><div class="num ${c}">${n}</div><div class="lbl">${l}</div></div>`)));
+  const cardDefs=[
+    ["Circuits",s.circuits,"",()=>dashGoCircuits(),"Open the Circuits tab"],
+    ["Activities",s.total_activities,"",()=>dashSetFilter(null),"Show all activities"],
+    ["Completed",s.completed,"",()=>dashSetFilter('completed'),"Show only Completed activities"],
+    ["In Progress",s.in_progress,"",()=>dashSetFilter('in_progress'),"Show only In Progress activities"],
+    ["Pending",s.pending,"",()=>dashSetFilter('pending'),"Show only Pending (Not Started / On Hold) activities"],
+    ["Critical",s.critical,"crit",()=>dashSetFilter('critical'),"Show only critical-path activities"],
+    ["Readiness %",readiness,"",()=>dashSetFilter('completed'),"Show Completed activities (what's driving readiness)"],
+  ];
+  cardDefs.forEach(([l,n,c,fn,title],i)=>{
+    const active = (l==="Completed"&&dashFilter==='completed')||(l==="In Progress"&&dashFilter==='in_progress')||
+      (l==="Pending"&&dashFilter==='pending')||(l==="Critical"&&dashFilter==='critical');
+    const card=el(`<div class="card" style="cursor:pointer;${active?'outline:2px solid var(--epc)':''}" title="${esc(title)}"><div class="num ${c}">${n}</div><div class="lbl">${l}</div></div>`);
+    card.onclick=fn;
+    cards.appendChild(card);
+  });
   v.appendChild(cards);
   if(val.errors.length||val.warnings.length){
     const p=el(`<div class="panel"><h2>Network Validation (${scope})</h2></div>`);
@@ -167,14 +187,23 @@ async function renderDashboard(v){
     if(val.warnings.length>8) p.appendChild(el(`<div class="muted">…and ${val.warnings.length-8} more</div>`));
     v.appendChild(p);
   }
-  const rows=s.activities.slice(0,400).map(a=>`<tr class="${a.is_critical?'crit':''}">
+  let filtered=s.activities;
+  if(dashFilter==='completed') filtered=filtered.filter(a=>a.status==='Completed');
+  else if(dashFilter==='in_progress') filtered=filtered.filter(a=>a.status==='In Progress');
+  else if(dashFilter==='pending') filtered=filtered.filter(a=>a.status!=='Completed'&&a.status!=='In Progress');
+  else if(dashFilter==='critical') filtered=filtered.filter(a=>a.is_critical);
+  if(dashFilter){
+    v.appendChild(el(`<div class="row" style="margin-bottom:8px"><span class="muted">Filtered: <b>${dashFilter.replace('_',' ')}</b> (${filtered.length})</span>
+      <button class="btn ghost" onclick="dashSetFilter(null)">Clear filter</button></div>`));
+  }
+  const rows=filtered.slice(0,400).map(a=>`<tr class="${a.is_critical?'crit':''}">
     <td>${a.is_critical?'<span class="dot">●</span> ':''}<b>${esc(a.activity_id)}</b></td>
     <td>${esc(a.name)}</td><td>${a.duration}d</td><td>${esc(a.start_date)||'—'}</td>
     <td>${esc(a.finish_date)||'—'}</td><td>${a.total_float??'—'}</td><td>${esc(a.status)}</td></tr>`).join("");
   v.appendChild(el(`<div class="panel" style="padding:0;overflow:hidden"><table>
     <thead><tr><th>Activity ID</th><th>Activity</th><th>Dur</th><th>Start</th><th>Finish</th><th>Float</th><th>Status</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`));
-  if(s.activities.length>400) v.appendChild(el(`<div class="muted">Showing first 400 of ${s.activities.length}. Filter by a PMCC to narrow down.</div>`));
+  if(filtered.length>400) v.appendChild(el(`<div class="muted">Showing first 400 of ${filtered.length}. Filter by a PMCC to narrow down.</div>`));
 }
 
 async function renderPMCCs(v){
@@ -193,8 +222,31 @@ async function renderPMCCs(v){
       <tbody>${rows}</tbody></table></div>`;
 }
 
+async function renderNetworkOverview(v){
+  const data=await api("GET","/api/timeline");
+  const rows=data.pmcc_rows;
+  const W=205,H=88,GX=225,GY=104,cols=6,padX=20,padY=20;
+  const cards=rows.map((r,i)=>{ const x=padX+(i%cols)*GX, y=padY+Math.floor(i/cols)*GY;
+    const stroke=r.critical?"#e4572e":"#cbd5e1", head=r.critical?"#b3411f":"#1f4e78";
+    return `<g class="net-pmcc" data-no="${esc(r.no)}" style="cursor:pointer">
+      <rect x="${x}" y="${y}" width="${W}" height="${H}" rx="9" fill="#fff" stroke="${stroke}" stroke-width="${r.critical?2:1}"/>
+      <rect x="${x}" y="${y}" width="${W}" height="22" rx="9" fill="${head}"/><rect x="${x}" y="${y+11}" width="${W}" height="11" fill="${head}"/>
+      <text x="${x+9}" y="${y+16}" fill="#fff" font-size="12" font-weight="700">${esc(r.no)}</text>
+      <text x="${x+9}" y="${y+38}" font-size="10.5" fill="#334155">${esc(r.description).slice(0,26)}</text>
+      <text x="${x+9}" y="${y+56}" font-size="10" fill="#64748b">${r.activities} activities${r.manual?' · adjusted':''}</text>
+      <text x="${x+9}" y="${y+72}" font-size="10" fill="#64748b">${esc(r.start)} → ${esc(r.finish)}</text>
+    </g>`;}).join("");
+  const svgW=padX*2+cols*GX, svgH=padY*2+Math.ceil(rows.length/cols)*GY;
+  v.innerHTML=`<h1>Visual Logic Network — All PMCCs</h1>
+    <div class="muted" style="margin-bottom:8px">${rows.length} PMCCs across the whole train. Click a PMCC to drill into its commissioning circuits (subsystem-wise) and each circuit's activity precedence network (activity-wise). Critical PMCCs outlined in orange.</div>
+    <div class="panel" style="overflow:auto;max-height:76vh"><svg width="${svgW}" height="${svgH}">${cards}</svg></div>`;
+  v.querySelectorAll(".net-pmcc").forEach(g=>g.addEventListener("click",()=>{
+    pmcc=g.dataset.no; const sel=document.getElementById("pmccSel"); if(sel) sel.value=pmcc; render();
+  }));
+}
+
 async function renderNetwork(v){
-  if(!pmcc){ v.innerHTML=`<h1>Visual Logic Network</h1><div class="hint">Select a PMCC from the top-right dropdown to view its commissioning circuits and connectors. (The full train has 1,150+ activities — too many to draw at once.)</div>`; return; }
+  if(!pmcc) return renderNetworkOverview(v);
   const net=await api("GET","/api/network"+q());
   const W=190,H=78,padX=130,padY=16,GX=215,LANE=96,CGAP=28;
   // adjacency for per-circuit DAG layout
@@ -233,7 +285,7 @@ async function renderNetwork(v){
       <text x="${x+8}" y="${y+36}" font-size="10" fill="#334155">${esc(d.discipline)}</text>
       <text x="${x+8}" y="${y+52}" font-size="10" fill="#64748b">${esc(d.startDate)||'—'} → ${esc(d.finishDate)||'—'}</text>
       <text x="${x+8}" y="${y+68}" font-size="10" fill="#64748b">Float ${d.totalFloat??'—'} · Prio ${esc(d.priority)}</text></g>`;}).join("");
-  v.innerHTML=`<h1>Visual Logic Network — ${esc(pmcc)}</h1>
+  v.innerHTML=`<h1>Visual Logic Network — ${esc(pmcc)} <a href="#" onclick="pmcc='';document.getElementById('pmccSel').value='';render();return false;" style="font-size:12px;font-weight:400;color:var(--epc)">← All PMCCs</a></h1>
     <div class="muted" style="margin-bottom:8px">${net.nodes.length} activities across ${order.length} circuits. Each circuit is a precedence network — parallel Leak Test / Loop Check branches — drawn with orthogonal connectors. Critical path in orange.</div>
     <div class="panel" style="overflow:auto;max-height:72vh">
       <svg width="${svgW}" height="${svgH}">
@@ -243,7 +295,16 @@ async function renderNetwork(v){
 }
 
 function tlSetZoom(z){ tlPxDay=Number(z); render(); }
-function tlToggle(no){ if(tlExpanded.has(no)) tlExpanded.delete(no); else tlExpanded.add(no); render(); }
+function tlToggle(no){
+  if(tlExpanded.has(no)){ tlExpanded.delete(no); }
+  else{
+    tlExpanded.add(no);
+    // expanding a PMCC here focuses the whole app on it, so switching to
+    // Dashboard/Network/Gantt/Circuits shows the same PMCC you just adjusted
+    pmcc=no; const sel=document.getElementById("pmccSel"); if(sel) sel.value=no;
+  }
+  render();
+}
 async function tlSetMC(v){ if(!v)return; await api("PUT","/api/project",{mechanical_completion_date:v}); tlDetail={}; render(); }
 async function tlResetAdjustments(){ await api("POST","/api/reset-adjustments",{}); tlDetail={}; render(); }
 function addDays(iso,n){ const d=new Date(iso+"T00:00:00"); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
@@ -279,7 +340,7 @@ async function renderTimeline(v){
     rowsHtml+=`<div class="tl-row" style="width:${fullW}px">
       <span class="tl-lab ${r.critical?'crit':''}" onclick="tlToggle('${r.no}')"><span class="tl-caret">${expanded?'▾':'▸'}</span><b>${esc(r.no)}</b>&nbsp;<span class="muted" style="font-size:10px">${esc(r.description).slice(0,28)}</span></span>
       <div class="tl-bar ${r.critical?'crit':''} ${r.manual?'manual':''}" data-kind="pmcc" data-no="${esc(r.no)}" data-start="${r.start}" data-finish="${r.finish}"
-        style="left:${leftW+l*px}px;width:${w}px" title="${esc(r.no)} — ${esc(r.description)}&#10;${r.start} to ${r.finish} (${r.activities} activities)&#10;Drag to shift the whole PMCC.">${esc(r.no)}</div></div>`;
+        style="left:${leftW+l*px}px;width:${w}px" title="${esc(r.no)} — ${esc(r.description)}&#10;${r.start} to ${r.finish} (${r.activities} activities)&#10;Drag the middle to shift the whole PMCC · drag the right edge to compress/stretch its schedule.">${esc(r.no)}<div class="tl-resize" data-kind="pmcc" data-no="${esc(r.no)}"></div></div></div>`;
     if(expanded){
       const det=tlDetail[r.no];
       if(det){
@@ -289,8 +350,8 @@ async function renderTimeline(v){
             const al=dayOf(a.start), aw=Math.max((dayOf(a.finish)-al+1)*px,4);
             rowsHtml+=`<div class="tl-row sub" style="width:${fullW}px">
               <span class="tl-lab sub ${a.critical?'crit':''}" title="${esc(a.name)}">${esc(a.name)}</span>
-              <div class="tl-bar sub ${a.critical?'crit':''} ${a.is_manual?'manual':''}" data-kind="activity" data-id="${a.id}" data-start="${a.start}" data-finish="${a.finish}"
-                style="left:${leftW+al*px}px;width:${aw}px" title="${esc(a.name)} (${esc(a.discipline)})&#10;${a.start} to ${a.finish} · float ${a.float}&#10;Drag to reschedule.">${esc(a.name).slice(0,18)}</div></div>`;
+              <div class="tl-bar sub ${a.critical?'crit':''} ${a.is_manual?'manual':''}" data-kind="activity" data-id="${a.id}" data-start="${a.start}" data-finish="${a.finish}" data-duration="${a.duration}"
+                style="left:${leftW+al*px}px;width:${aw}px" title="${esc(a.name)} (${esc(a.discipline)})&#10;${a.start} to ${a.finish} · ${a.duration}d · float ${a.float}&#10;Drag the middle to reschedule · drag the right edge to change duration.">${esc(a.name).slice(0,18)}<div class="tl-resize" data-kind="activity" data-id="${a.id}"></div></div></div>`;
           });
         });
       } else {
@@ -301,7 +362,7 @@ async function renderTimeline(v){
 
   v.innerHTML=`<h1>SIMOPS Timeline — All PMCCs Clubbed</h1>
     ${tlControls(data)}
-    <div class="muted" style="margin-bottom:8px">${rows.length} PMCCs on a calendar axis. <b>Drag a PMCC bar</b> to shift all its activities together · <b>click a PMCC</b> to expand its circuits/activities, each individually draggable · changes reflect here immediately. Green dashed = Mechanical Completion.</div>
+    <div class="muted" style="margin-bottom:8px">${rows.length} PMCCs on a calendar axis. <b>Drag a bar's middle</b> to move it (shift dates) · <b>drag its right edge</b> to resize it (change duration — PMCC bars compress/stretch every activity inside proportionally) · <b>click a PMCC</b> to expand its circuits/activities, each individually draggable. Changes reflect everywhere immediately. Green dashed = Mechanical Completion.</div>
     <div class="tl-wrap" id="tlw"><div class="tl-grid" style="width:${fullW}px">${head}${mcLine}${rowsHtml}</div></div>`;
 
   for(const no of tlExpanded){
@@ -326,10 +387,21 @@ function tlControls(data){
 }
 
 // --- drag handling: one set of listeners for the whole page (re-render swaps
-// the DOM each time, so listeners live at the document level, not per-render) ---
-let tlDrag=null;
+// the DOM each time, so listeners live at the document level, not per-render).
+// Two independent gestures on the same bar: dragging its body MOVES it (start
+// date), dragging the thin handle on its right edge RESIZES it (duration). ---
+let tlDrag=null, tlResize=null;
 document.addEventListener("mousedown", e=>{
   if(current!=="Timeline") return;
+  const handle=e.target.closest(".tl-resize");
+  if(handle){
+    e.preventDefault(); e.stopPropagation();
+    const bar=handle.closest(".tl-bar");
+    tlResize={ el:bar, kind:handle.dataset.kind, id:handle.dataset.id, no:handle.dataset.no,
+      startWidth:parseFloat(bar.style.width), startX:e.pageX, moved:0 };
+    bar.classList.add("resizing"); handle.classList.add("resizing");
+    return;
+  }
   const bar=e.target.closest(".tl-bar");
   if(!bar) return;
   e.preventDefault();
@@ -338,11 +410,40 @@ document.addEventListener("mousedown", e=>{
   bar.classList.add("dragging");
 });
 document.addEventListener("mousemove", e=>{
-  if(!tlDrag) return;
-  tlDrag.moved=e.pageX-tlDrag.startX;
-  tlDrag.el.style.left=(tlDrag.startLeft+tlDrag.moved)+"px";
+  if(tlResize){
+    tlResize.moved=e.pageX-tlResize.startX;
+    tlResize.el.style.width=Math.max(4, tlResize.startWidth+tlResize.moved)+"px";
+    return;
+  }
+  if(tlDrag){
+    tlDrag.moved=e.pageX-tlDrag.startX;
+    tlDrag.el.style.left=(tlDrag.startLeft+tlDrag.moved)+"px";
+  }
 });
 document.addEventListener("mouseup", async ()=>{
+  if(tlResize){
+    const d=tlResize; tlResize=null;
+    d.el.classList.remove("resizing");
+    document.querySelectorAll(".tl-resize.resizing").forEach(h=>h.classList.remove("resizing"));
+    const deltaDays=Math.round(d.moved/tlPxDay);
+    if(deltaDays!==0){
+      try{
+        if(d.kind==="activity"){
+          const oldDur=parseFloat(d.el.dataset.duration)||1;
+          const newDur=Math.max(1, oldDur+deltaDays);
+          await api("PUT", `/api/activities/${d.id}`, {duration:newDur});
+        } else {
+          const start=new Date(d.el.dataset.start+"T00:00:00"), finish=new Date(d.el.dataset.finish+"T00:00:00");
+          const oldSpanDays=Math.round((finish-start)/86400000)+1;
+          const factor=Math.max(0.2, (oldSpanDays+deltaDays)/oldSpanDays);
+          await api("POST", `/api/pmcc/${encodeURIComponent(d.no)}/scale-duration`, {factor});
+        }
+      } catch(err){ alert(err.message); }
+      tlDetail={};
+    }
+    render();
+    return;
+  }
   if(!tlDrag) return;
   const d=tlDrag; tlDrag=null;
   d.el.classList.remove("dragging");
@@ -415,9 +516,31 @@ function renderExports(v){
 let chat=[];
 async function renderAI(v){
   const h=await api("GET","/api/health");
-  v.innerHTML=`<h1>AI Assistant</h1><div class="muted" style="margin-bottom:10px">${h.ai_available?'Claude online — ask about the critical path, PMCC sequencing or bottlenecks.':'Offline — set ANTHROPIC_API_KEY to enable Claude. Everything else works without it.'}</div>
-    <div class="panel" style="height:340px;overflow:auto">${chat.map(m=>`<div class="msg ${m.role}">${esc(m.text)}</div>`).join("")||'<div class="muted">Try: “Which PMCC has the most critical activities?”</div>'}</div>
+  const s=await api("GET","/api/settings");
+  v.innerHTML=`<h1>AI Assistant</h1><div class="muted" style="margin-bottom:10px">${h.ai_available?'Claude online — ask about the critical path, PMCC sequencing or bottlenecks.':'Offline — enter a Claude API key below (or set ANTHROPIC_API_KEY) to enable it. Everything else works without it.'}</div>
+    <div class="panel">
+      <h2>Claude API Key</h2>
+      <div class="row">
+        <input id="apiKey" type="password" placeholder="${s.anthropic_configured?'●●●●●●●●●●●●●●●● (key saved — enter a new one to replace)':'sk-ant-…'}" style="flex:1;min-width:280px">
+        <button class="btn" onclick="saveApiKey()">Save key</button>
+        ${s.anthropic_configured?'<button class="btn ghost" onclick="clearApiKey()">Clear</button>':''}
+      </div>
+      <div class="muted" style="margin-top:6px">Get a key at console.anthropic.com. Stored locally in this app's data folder (data/standalone.json) — not sent anywhere except directly to Anthropic's API when you ask a question.</div>
+    </div>
+    <div class="panel" style="height:300px;overflow:auto">${chat.map(m=>`<div class="msg ${m.role}">${esc(m.text)}</div>`).join("")||'<div class="muted">Try: “Which PMCC has the most critical activities?”</div>'}</div>
     <div class="row" style="margin-top:8px"><input id="qx" placeholder="Ask the scheduling assistant…" style="flex:1" onkeydown="if(event.key==='Enter')sendAI()"><button class="btn" onclick="sendAI()">Send</button></div>`;
+}
+async function saveApiKey(){
+  const v=document.getElementById("apiKey").value.trim();
+  if(!v) return;
+  await api("PUT","/api/settings",{anthropic_api_key:v});
+  const h=await api("GET","/api/health"); document.getElementById("aifoot").textContent="AI: "+(h.ai_available?"Online":"Offline")+" · standalone";
+  render();
+}
+async function clearApiKey(){
+  await api("PUT","/api/settings",{anthropic_api_key:""});
+  const h=await api("GET","/api/health"); document.getElementById("aifoot").textContent="AI: "+(h.ai_available?"Online":"Offline")+" · standalone";
+  render();
 }
 async function sendAI(){ const q=document.getElementById("qx").value.trim(); if(!q)return;
   chat.push({role:"user",text:q}); renderAI(document.getElementById("view"));

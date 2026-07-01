@@ -32,19 +32,19 @@ def validate_network(
     if cyc is not None:
         errors.append("Circular logic: " + " -> ".join(name_of.get(n, n) for n in cyc))
 
-    # predecessor / successor coverage
+    # Orphan detection only. This network is intentionally many independent
+    # precedence chains (one per commissioning circuit), each with its own
+    # legitimate start node(s) (no predecessor) and end node (no successor) —
+    # that is expected, correct structure, not a defect, so it is not flagged.
+    # An activity with *no* relationships at all (neither predecessor nor
+    # successor) is the only genuinely suspicious case: it suggests the
+    # activity was never wired into its circuit's logic.
     has_pred = {e.successor_id for e in edges if e.successor_id in ids}
     has_succ = {e.predecessor_id for e in edges if e.predecessor_id in ids}
 
     if len(activities) > 1:
         for a in activities:
-            isolated = a.id not in has_pred and a.id not in has_succ
-            if isolated:
+            if a.id not in has_pred and a.id not in has_succ:
                 warnings.append(f"Orphan activity (no logic links): {a.name}")
-                continue
-            if a.id not in has_pred:
-                warnings.append(f"Missing predecessor (start node): {a.name}")
-            if a.id not in has_succ:
-                warnings.append(f"Missing successor (end node): {a.name}")
 
     return warnings, errors

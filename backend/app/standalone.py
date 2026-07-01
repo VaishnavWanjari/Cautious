@@ -81,6 +81,9 @@ class Store:
         self.pmcc_finish: dict[str, str] = {}
         # Per-activity manual start override (drag a single activity) — keyed by id.
         self.manual_start: dict[int, str] = {}
+        # User-entered settings (e.g. the Claude API key, set from the AI tab
+        # rather than an environment variable so the desktop app is self-serve).
+        self.settings: dict[str, str] = {"anthropic_api_key": ""}
         self.pmccs = [
             {
                 "seq": seq,
@@ -195,6 +198,7 @@ class Store:
                 self.logic_rules = data.get("logic_rules", [])
                 self.pmcc_finish = data.get("pmcc_finish", {})
                 self.manual_start = {int(k): v for k, v in data.get("manual_start", {}).items()}
+                self.settings = data.get("settings", self.settings)
                 self._next = data.get("_next", self._next)
             except Exception:
                 pass
@@ -212,6 +216,7 @@ class Store:
                     "logic_rules": self.logic_rules,
                     "pmcc_finish": self.pmcc_finish,
                     "manual_start": self.manual_start,
+                    "settings": self.settings,
                     "_next": self._next,
                 },
                 indent=2,
@@ -400,6 +405,22 @@ class Store:
             "warnings": warnings,
         }
 
+    def scale_pmcc_duration(self, pmcc_no: str, factor: float) -> int:
+        """Compress/stretch a whole PMCC's schedule by scaling every one of its
+        activity durations by ``factor`` (e.g. 0.8 = 20% shorter), rounding to
+        whole days with a 1-day floor. This is what "shrinking the PMCC bar"
+        in the timeline does — the bar's length is the span of its longest
+        circuit, so shortening every activity shortens that span too.
+        Returns the number of activities scaled.
+        """
+        factor = max(0.1, min(5.0, factor))
+        count = 0
+        for a in self.activities:
+            if a["pmcc_no"] == pmcc_no:
+                a["duration"] = max(1, round(a["duration"] * factor))
+                count += 1
+        return count
+
     def network(self, pmcc: str | None = None) -> dict:
         self.compute()  # ensure dates fresh (global schedule)
         nodes, edges = self._domain(pmcc)
@@ -574,13 +595,20 @@ class Store:
 STORE = Store()
 
 
+def effective_api_key() -> str:
+    """The Claude API key to use: the one entered in the AI tab, else the
+    ANTHROPIC_API_KEY environment variable (either is optional)."""
+    return STORE.settings.get("anthropic_api_key") or os.environ.get("ANTHROPIC_API_KEY", "")
+
+
 def ai_reply(message: str) -> dict:
     """Offline-graceful AI: uses Claude if key + SDK present, else a clear note."""
-    key = os.environ.get("ANTHROPIC_API_KEY", "")
+    key = effective_api_key()
     if not key:
         return {
-            "reply": "AI assistant is offline. Set ANTHROPIC_API_KEY to enable Claude. "
-            "All scheduling, network, Gantt and export features work without it.",
+            "reply": "AI assistant is offline. Enter a Claude API key on this AI tab "
+            "(or set ANTHROPIC_API_KEY) to enable it. All scheduling, network, "
+            "Gantt and export features work without it.",
             "ai_available": False,
         }
     try:
@@ -662,7 +690,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._bytes(html, "text/html; charset=utf-8")
         with STORE.lock:
             if path == "/api/health":
-                return self._json({"status": "ok", "mode": "standalone", "ai_available": bool(os.environ.get("ANTHROPIC_API_KEY"))})
+                return self._json({"status": "ok", "mode": "standalone", "ai_available": bool(effective_api_key())})
+            if path == "/api/settings":
+                return self._json({"anthropic_configured": bool(STORE.settings.get("anthropic_api_key"))})
             if path == "/api/project":
                 return self._json(STORE.project)
             if path == "/api/pmccs":
@@ -736,6 +766,19 @@ class Handler(BaseHTTPRequestHandler):
                 STORE.pmcc_finish.pop(m.group(1), None)
                 STORE.save()
                 return self._json({"ok": True})
+            # --- resize the whole PMCC bar: scale every activity's duration ---
+            m = re.match(r"/api/pmcc/([\w-]+)/scale-duration$", path)
+            if m:
+                pmcc_no = m.group(1)
+                try:
+                    factor = float(body.get("factor", 1.0))
+                except (TypeError, ValueError):
+                    return self._json({"error": "factor must be a number"}, 400)
+                if factor <= 0:
+                    return self._json({"error": "factor must be positive"}, 400)
+                count = STORE.scale_pmcc_duration(pmcc_no, factor)
+                STORE.save()
+                return self._json({"ok": True, "pmcc_no": pmcc_no, "factor": factor, "activities_scaled": count})
             # --- drag a single activity: manual start-date pin ---
             m = re.match(r"/api/activities/(\d+)/reschedule$", path)
             if m:
@@ -811,6 +854,12 @@ class Handler(BaseHTTPRequestHandler):
                         STORE.project[k] = body[k]
                 STORE.save()
                 return self._json(STORE.project)
+        if path == "/api/settings":
+            with STORE.lock:
+                if "anthropic_api_key" in body:
+                    STORE.settings["anthropic_api_key"] = (body.get("anthropic_api_key") or "").strip()
+                STORE.save()
+                return self._json({"anthropic_configured": bool(STORE.settings.get("anthropic_api_key"))})
         m = re.match(r"/api/activities/(\d+)$", path)
         if m:
             with STORE.lock:
