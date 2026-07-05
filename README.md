@@ -46,6 +46,14 @@ filter everything by PMCC.
 - **No-code logic engine** — author rules in plain language
   (`IF Hydrotest Complete AND Nitrogen Available THEN Enable Leak Test`) with
   AND/OR/NOT and nesting.
+- **Resource & rental planning** — a master catalogue of **consumables, tools &
+  tackles and equipment** (with unit, owned/rental type, day-rate/unit-cost,
+  currency and supplier), assigned to a **PMCC or a specific activity**. The
+  planner rolls the demand up against the backward-CPM schedule to show
+  time-phased windows, **peak concurrent demand** per item, and a
+  **rental-cost total** (`rate × qty × working-days` for rentals, `rate × qty`
+  for owned/consumables) broken down by category. Round-trippable **CSV
+  import/export** moves the whole plan in and out.
 - **Constraint capture** — resource / utility / area / vendor / permit.
 - **Dashboard** — totals, completion, critical count, readiness and validation
   warnings (circular logic, orphans, missing predecessors/successors).

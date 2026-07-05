@@ -91,7 +91,12 @@ class Store:
         self.activities: list[dict] = []
         self.relationships: list[dict] = []
         self.logic_rules: list[dict] = []
-        self._next = {"activity": 1, "rel": 1, "rule": 1}
+        # Resource & rental planning (consumables, tools & tackles, equipment).
+        self.resources: list[dict] = []  # master catalogue
+        self.resource_assignments: list[dict] = []  # catalogue item -> PMCC/activity
+        self._next = {
+            "activity": 1, "rel": 1, "rule": 1, "resource": 1, "assignment": 1,
+        }
 
     # --- seed (optional "Load Sample Data" action, never automatic) ----------
     def reset_to_seed(self) -> None:
@@ -218,7 +223,34 @@ class Store:
             {"id": 2, "condition": "Leak Test Complete AND Nitrogen Available", "action": "Enable Inertization"},
             {"id": 3, "condition": "Loop Check Complete", "action": "Enable Punch Point Liquidation"},
         ]
-        self._next = {"activity": aid, "rel": rid, "rule": 4}
+        # Resource & rental catalogue + PMCC-scoped assignments.
+        self.resources = []
+        self.resource_assignments = []
+        code_to_id: dict[str, int] = {}
+        for i, (cat, name, code, unit, own, rate, cur, sup, notes) in enumerate(
+            sd.RESOURCES, start=1
+        ):
+            code_to_id[code] = i
+            self.resources.append(
+                {
+                    "id": i, "category": cat, "name": name, "code": code,
+                    "unit": unit, "ownership": own, "rate": rate,
+                    "currency": cur, "supplier": sup, "notes": notes,
+                }
+            )
+        for j, (rcode, pmcc_no, qty) in enumerate(sd.RESOURCE_ASSIGNMENTS, start=1):
+            self.resource_assignments.append(
+                {
+                    "id": j, "resource_id": code_to_id[rcode], "scope": "PMCC",
+                    "pmcc_no": pmcc_no, "activity_id": None, "quantity": qty,
+                    "start_date": "", "finish_date": "",
+                }
+            )
+        self._next = {
+            "activity": aid, "rel": rid, "rule": 4,
+            "resource": len(self.resources) + 1,
+            "assignment": len(self.resource_assignments) + 1,
+        }
 
     # --- persistence --------------------------------------------------------
     def load(self) -> None:
@@ -246,10 +278,14 @@ class Store:
         self.activities = data["activities"]
         self.relationships = data["relationships"]
         self.logic_rules = data.get("logic_rules", [])
+        self.resources = data.get("resources", [])
+        self.resource_assignments = data.get("resource_assignments", [])
         self.pmcc_finish = data.get("pmcc_finish", {})
         self.manual_start = {int(k): v for k, v in data.get("manual_start", {}).items()}
         self.settings = data.get("settings", self.settings)
-        self._next = data.get("_next", self._next)
+        # Merge saved id counters over the defaults so a file written before the
+        # resource module existed still gets the new counters.
+        self._next = {**self._next, **data.get("_next", {})}
 
     def save(self) -> None:
         DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -262,6 +298,8 @@ class Store:
                     "activities": self.activities,
                     "relationships": self.relationships,
                     "logic_rules": self.logic_rules,
+                    "resources": self.resources,
+                    "resource_assignments": self.resource_assignments,
                     "pmcc_finish": self.pmcc_finish,
                     "manual_start": self.manual_start,
                     "settings": self.settings,
@@ -1082,6 +1120,274 @@ class Store:
             "circuits": circuits,
         }
 
+    # --- resource & rental planning -----------------------------------------
+    RESOURCE_CSV_COLUMNS = [
+        "record_type", "category", "name", "code", "unit", "ownership",
+        "rate", "currency", "supplier", "notes",
+        "assign_scope", "assign_pmcc", "assign_activity_id", "assign_quantity",
+        "assign_start", "assign_finish",
+    ]
+
+    def _pmcc_spans(self) -> dict[str, tuple[str, str]]:
+        """min start / max finish (ISO strings) for every PMCC, from the last
+        computed schedule already written onto ``self.activities``."""
+        spans: dict[str, tuple[str, str]] = {}
+        for a in self.activities:
+            s, f = a.get("start_date"), a.get("finish_date")
+            no = a.get("pmcc_no")
+            if not no or not s or not f:
+                continue
+            if no not in spans:
+                spans[no] = (s, f)
+            else:
+                cs, cf = spans[no]
+                spans[no] = (min(cs, s), max(cf, f))
+        return spans
+
+    def _assignment_window(
+        self, asg: dict, act_by_id: dict, pmcc_spans: dict
+    ) -> tuple[str | None, str | None, str | None]:
+        """Resolve (start, finish, pmcc_no) for an assignment.
+
+        An explicit start/finish on the assignment always wins; otherwise the
+        window is inferred from the linked activity (Activity scope) or the
+        PMCC's schedule span (PMCC scope)."""
+        start = asg.get("start_date") or None
+        finish = asg.get("finish_date") or None
+        pmcc_no = asg.get("pmcc_no") or None
+        if asg.get("scope") == "Activity" and asg.get("activity_id") is not None:
+            act = act_by_id.get(asg["activity_id"])
+            if act:
+                pmcc_no = act.get("pmcc_no") or pmcc_no
+                start = start or act.get("start_date")
+                finish = finish or act.get("finish_date")
+        elif pmcc_no and pmcc_no in pmcc_spans:
+            s, f = pmcc_spans[pmcc_no]
+            start = start or s
+            finish = finish or f
+        return start, finish, pmcc_no
+
+    def resource_plan(self) -> dict:
+        """Time-phased resource demand and rental-cost rollup.
+
+        Cost model: a *Rental* line costs ``rate x quantity x working-days`` over
+        its scheduled window; anything else (owned gear / consumables) costs
+        ``rate x quantity`` as a one-off. Working days honour the project
+        calendar (weekends + holidays)."""
+        self.compute()  # refresh activity start/finish dates
+        calendar = self._calendar()
+        act_by_id = {a["id"]: a for a in self.activities}
+        res_by_id = {r["id"]: r for r in self.resources}
+        pmcc_spans = self._pmcc_spans()
+
+        lines: list[dict] = []
+        for asg in self.resource_assignments:
+            res = res_by_id.get(asg.get("resource_id"))
+            if not res:
+                continue
+            start, finish, pmcc_no = self._assignment_window(asg, act_by_id, pmcc_spans)
+            days = 0
+            if start and finish:
+                days = calendar.working_days_between(
+                    date.fromisoformat(start), date.fromisoformat(finish)
+                )
+            qty = float(asg.get("quantity") or 0)
+            rate = float(res.get("rate") or 0)
+            is_rental = (res.get("ownership") == "Rental")
+            cost = rate * qty * days if is_rental else rate * qty
+            act = act_by_id.get(asg.get("activity_id")) if asg.get("activity_id") is not None else None
+            lines.append(
+                {
+                    "assignment_id": asg["id"],
+                    "resource_id": res["id"],
+                    "category": res.get("category", ""),
+                    "name": res.get("name", ""),
+                    "code": res.get("code", ""),
+                    "unit": res.get("unit", ""),
+                    "ownership": res.get("ownership", ""),
+                    "rate": rate,
+                    "currency": res.get("currency", ""),
+                    "supplier": res.get("supplier", ""),
+                    "scope": asg.get("scope", "PMCC"),
+                    "pmcc_no": pmcc_no or "",
+                    "activity_label": (act.get("name") if act else ""),
+                    "quantity": qty,
+                    "start_date": start or "",
+                    "finish_date": finish or "",
+                    "working_days": days,
+                    "is_rental": is_rental,
+                    "cost": round(cost, 2),
+                }
+            )
+
+        # per-resource aggregation (+ peak concurrent demand across the timeline)
+        by_resource: dict[int, dict] = {}
+        for ln in lines:
+            agg = by_resource.setdefault(
+                ln["resource_id"],
+                {
+                    "resource_id": ln["resource_id"], "name": ln["name"],
+                    "code": ln["code"], "category": ln["category"],
+                    "unit": ln["unit"], "ownership": ln["ownership"],
+                    "currency": ln["currency"], "total_quantity": 0.0,
+                    "total_cost": 0.0, "peak_demand": 0.0, "_spans": [],
+                },
+            )
+            agg["total_quantity"] += ln["quantity"]
+            agg["total_cost"] = round(agg["total_cost"] + ln["cost"], 2)
+            agg["_spans"].append((ln["start_date"], ln["finish_date"], ln["quantity"]))
+        for agg in by_resource.values():
+            agg["peak_demand"] = _peak_concurrent(agg.pop("_spans"))
+
+        # per-category subtotals
+        by_category: dict[str, dict] = {}
+        for agg in by_resource.values():
+            cat = by_category.setdefault(
+                agg["category"] or "Uncategorised",
+                {"category": agg["category"] or "Uncategorised", "items": 0, "cost": 0.0},
+            )
+            cat["items"] += 1
+            cat["cost"] = round(cat["cost"] + agg["total_cost"], 2)
+
+        currencies = {r.get("currency") for r in self.resources if r.get("currency")}
+        currency = currencies.pop() if len(currencies) == 1 else ""
+        total_cost = round(sum(a["total_cost"] for a in by_resource.values()), 2)
+        rental_cost = round(
+            sum(ln["cost"] for ln in lines if ln["is_rental"]), 2
+        )
+        return {
+            "lines": sorted(lines, key=lambda x: (x["category"], x["name"], x["pmcc_no"])),
+            "by_resource": sorted(by_resource.values(), key=lambda x: (x["category"], x["name"])),
+            "by_category": sorted(by_category.values(), key=lambda x: x["category"]),
+            "total_cost": total_cost,
+            "rental_cost": rental_cost,
+            "currency": currency,
+            "catalogue_size": len(self.resources),
+            "assignment_count": len(self.resource_assignments),
+        }
+
+    def export_resources_csv(self) -> str:
+        """Round-trippable CSV of the whole catalogue + its assignments."""
+        buf = io.StringIO()
+        w = csv.DictWriter(buf, fieldnames=self.RESOURCE_CSV_COLUMNS)
+        w.writeheader()
+        for r in self.resources:
+            w.writerow(
+                {
+                    "record_type": "RESOURCE", "category": r.get("category", ""),
+                    "name": r.get("name", ""), "code": r.get("code", ""),
+                    "unit": r.get("unit", ""), "ownership": r.get("ownership", ""),
+                    "rate": r.get("rate", ""), "currency": r.get("currency", ""),
+                    "supplier": r.get("supplier", ""), "notes": r.get("notes", ""),
+                }
+            )
+        res_by_id = {r["id"]: r for r in self.resources}
+        for a in self.resource_assignments:
+            res = res_by_id.get(a.get("resource_id"))
+            w.writerow(
+                {
+                    "record_type": "ASSIGNMENT",
+                    "code": res.get("code", "") if res else "",
+                    "assign_scope": a.get("scope", "PMCC"),
+                    "assign_pmcc": a.get("pmcc_no", "") or "",
+                    "assign_activity_id": a.get("activity_id") or "",
+                    "assign_quantity": a.get("quantity", ""),
+                    "assign_start": a.get("start_date", "") or "",
+                    "assign_finish": a.get("finish_date", "") or "",
+                }
+            )
+        return buf.getvalue()
+
+    def import_resources_csv(self, text: str) -> dict:
+        """Load a catalogue/assignment CSV. RESOURCE rows are upserted by code;
+        ASSIGNMENT rows link to a catalogue item by code. Tolerant of blanks."""
+        reader = csv.DictReader(io.StringIO(text))
+        by_code: dict[str, dict] = {r["code"]: r for r in self.resources if r.get("code")}
+        errors: list[str] = []
+        added_res = added_asg = 0
+        assignment_rows: list[dict] = []
+        for i, row in enumerate(reader, start=2):
+            row = {(k or "").strip(): (v or "").strip() for k, v in row.items()}
+            kind = (row.get("record_type") or "").upper()
+            # infer: a row with catalogue fields but no record_type is a RESOURCE
+            if not kind:
+                kind = "ASSIGNMENT" if row.get("assign_quantity") or row.get("assign_pmcc") else "RESOURCE"
+            if kind == "RESOURCE":
+                code = row.get("code") or row.get("name")
+                if not row.get("name"):
+                    continue
+                try:
+                    rate = float(row.get("rate") or 0)
+                except ValueError:
+                    rate = 0.0
+                    errors.append(f"Row {i}: bad rate '{row.get('rate')}' — used 0.")
+                existing = by_code.get(code)
+                payload = {
+                    "category": row.get("category") or "Consumable",
+                    "name": row.get("name"), "code": code,
+                    "unit": row.get("unit", ""),
+                    "ownership": row.get("ownership") or "Owned",
+                    "rate": rate, "currency": row.get("currency") or "USD",
+                    "supplier": row.get("supplier", ""), "notes": row.get("notes", ""),
+                }
+                if existing:
+                    existing.update(payload)
+                else:
+                    rid = self.next_id("resource")
+                    rec = {"id": rid, **payload}
+                    self.resources.append(rec)
+                    by_code[code] = rec
+                    added_res += 1
+            elif kind == "ASSIGNMENT":
+                assignment_rows.append((i, row))
+        # second pass so assignments can reference resources added above
+        for i, row in assignment_rows:
+            res = by_code.get(row.get("code"))
+            if not res:
+                errors.append(f"Row {i}: assignment references unknown resource code '{row.get('code')}'.")
+                continue
+            try:
+                qty = float(row.get("assign_quantity") or 0)
+            except ValueError:
+                qty = 0.0
+            act_id = row.get("assign_activity_id")
+            self.resource_assignments.append(
+                {
+                    "id": self.next_id("assignment"),
+                    "resource_id": res["id"],
+                    "scope": row.get("assign_scope") or ("Activity" if act_id else "PMCC"),
+                    "pmcc_no": row.get("assign_pmcc") or None,
+                    "activity_id": int(act_id) if act_id and act_id.isdigit() else None,
+                    "quantity": qty,
+                    "start_date": row.get("assign_start", ""),
+                    "finish_date": row.get("assign_finish", ""),
+                }
+            )
+            added_asg += 1
+        self.save()
+        return {"ok": added_res + added_asg > 0, "resources_added": added_res,
+                "assignments_added": added_asg, "errors": errors}
+
+
+def _peak_concurrent(spans: list[tuple[str, str, float]]) -> float:
+    """Maximum simultaneous quantity across dated spans (inclusive). Undated
+    spans are treated as always-on and added to the baseline."""
+    baseline = sum(q for s, f, q in spans if not (s and f))
+    events: list[tuple[str, float]] = []
+    for s, f, q in spans:
+        if s and f:
+            events.append((s, q))
+            events.append((f + "~", -q))  # '~' sorts after any ISO date on same day → inclusive
+    if not events:
+        return round(baseline, 2)
+    events.sort()
+    cur = baseline
+    peak = baseline
+    for _, delta in events:
+        cur += delta
+        peak = max(peak, cur)
+    return round(peak, 2)
+
 
 STORE = Store()
 
@@ -1206,6 +1512,17 @@ class Handler(BaseHTTPRequestHandler):
                 )
             if path == "/api/logic-rules":
                 return self._json(STORE.logic_rules)
+            if path == "/api/resources":
+                return self._json(STORE.resources)
+            if path == "/api/resource-assignments":
+                asgs = STORE.resource_assignments
+                if pmcc:
+                    asgs = [a for a in asgs if a.get("pmcc_no") == pmcc]
+                return self._json(asgs)
+            if path == "/api/resource-plan":
+                return self._json(STORE.resource_plan())
+            if path == "/api/export/resources-csv":
+                return self._bytes(STORE.export_resources_csv().encode(), "text/csv", filename="resource_plan.csv")
             if path == "/api/schedule/compute":
                 return self._json(STORE.compute())
             if path == "/api/network":
@@ -1331,6 +1648,57 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 STORE.save()
                 return self._json({"id": rid})
+            if path == "/api/resources":
+                if not body.get("name"):
+                    return self._json({"error": "name required"}, 400)
+                rid = STORE.next_id("resource")
+                try:
+                    rate = float(body.get("rate") or 0)
+                except (TypeError, ValueError):
+                    rate = 0.0
+                rec = {
+                    "id": rid,
+                    "category": body.get("category") or "Consumable",
+                    "name": body.get("name"),
+                    "code": body.get("code", ""),
+                    "unit": body.get("unit", ""),
+                    "ownership": body.get("ownership") or "Owned",
+                    "rate": rate,
+                    "currency": body.get("currency") or "USD",
+                    "supplier": body.get("supplier", ""),
+                    "notes": body.get("notes", ""),
+                }
+                STORE.resources.append(rec)
+                STORE.save()
+                return self._json(rec)
+            if path == "/api/resource-assignments":
+                if not body.get("resource_id"):
+                    return self._json({"error": "resource_id required"}, 400)
+                aid = STORE.next_id("assignment")
+                act_id = body.get("activity_id")
+                try:
+                    qty = float(body.get("quantity") or 1)
+                except (TypeError, ValueError):
+                    qty = 1.0
+                rec = {
+                    "id": aid,
+                    "resource_id": int(body["resource_id"]),
+                    "scope": body.get("scope") or ("Activity" if act_id else "PMCC"),
+                    "pmcc_no": body.get("pmcc_no") or None,
+                    "activity_id": int(act_id) if act_id else None,
+                    "quantity": qty,
+                    "start_date": body.get("start_date", ""),
+                    "finish_date": body.get("finish_date", ""),
+                }
+                STORE.resource_assignments.append(rec)
+                STORE.save()
+                return self._json(rec)
+            if path == "/api/import/resources-csv":
+                text = body.get("csv", "")
+                if not text:
+                    return self._json({"ok": False, "errors": ["No CSV content received."],
+                                        "resources_added": 0, "assignments_added": 0})
+                return self._json(STORE.import_resources_csv(text))
             if path == "/api/ai/chat":
                 return self._json(ai_reply(body.get("message", "")))
             if path == "/api/reset":
@@ -1384,6 +1752,40 @@ class Handler(BaseHTTPRequestHandler):
                         a[k] = int(body[k]) if k == "duration" else body[k]
                 STORE.save()
                 return self._json(a)
+        m = re.match(r"/api/resources/(\d+)$", path)
+        if m:
+            with STORE.lock:
+                r = next((x for x in STORE.resources if x["id"] == int(m.group(1))), None)
+                if not r:
+                    return self._json({"error": "not found"}, 404)
+                for k in ("category", "name", "code", "unit", "ownership", "currency", "supplier", "notes"):
+                    if k in body:
+                        r[k] = body[k]
+                if "rate" in body:
+                    try:
+                        r["rate"] = float(body["rate"])
+                    except (TypeError, ValueError):
+                        pass
+                STORE.save()
+                return self._json(r)
+        m = re.match(r"/api/resource-assignments/(\d+)$", path)
+        if m:
+            with STORE.lock:
+                a = next((x for x in STORE.resource_assignments if x["id"] == int(m.group(1))), None)
+                if not a:
+                    return self._json({"error": "not found"}, 404)
+                for k in ("scope", "pmcc_no", "start_date", "finish_date"):
+                    if k in body:
+                        a[k] = body[k]
+                if "activity_id" in body:
+                    a["activity_id"] = int(body["activity_id"]) if body["activity_id"] else None
+                if "quantity" in body:
+                    try:
+                        a["quantity"] = float(body["quantity"])
+                    except (TypeError, ValueError):
+                        pass
+                STORE.save()
+                return self._json(a)
         return self._json({"error": "not found"}, 404)
 
     def do_PATCH(self):
@@ -1421,6 +1823,24 @@ class Handler(BaseHTTPRequestHandler):
             if m:
                 rid = int(m.group(1))
                 STORE.logic_rules = [r for r in STORE.logic_rules if r["id"] != rid]
+                STORE.save()
+                return self._json({"ok": True})
+            m = re.match(r"/api/resources/(\d+)$", path)
+            if m:
+                rid = int(m.group(1))
+                STORE.resources = [r for r in STORE.resources if r["id"] != rid]
+                # cascade: drop assignments that referenced the deleted resource
+                STORE.resource_assignments = [
+                    a for a in STORE.resource_assignments if a.get("resource_id") != rid
+                ]
+                STORE.save()
+                return self._json({"ok": True})
+            m = re.match(r"/api/resource-assignments/(\d+)$", path)
+            if m:
+                aid = int(m.group(1))
+                STORE.resource_assignments = [
+                    a for a in STORE.resource_assignments if a["id"] != aid
+                ]
                 STORE.save()
                 return self._json({"ok": True})
         return self._json({"error": "not found"}, 404)

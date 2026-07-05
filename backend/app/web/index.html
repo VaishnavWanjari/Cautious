@@ -85,6 +85,35 @@
   .tl-ctrl .zoom { display:flex; align-items:center; gap:6px; font-size:12px; color:#475569; }
   .tl-legend { display:flex; gap:14px; align-items:center; font-size:11px; color:#64748b; }
   .tl-legend .sw { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:4px; vertical-align:-1px; }
+  /* --- aesthetic polish (additive) --- */
+  aside { background:linear-gradient(180deg,#143a5c 0%,#0f2a43 100%); }
+  aside .brand b { letter-spacing:.2px; }
+  nav button { transition:background .12s ease; border-left:3px solid transparent; }
+  nav button.active { border-left-color:#5b9bd5; }
+  header { box-shadow:0 1px 3px rgba(15,42,67,.05); z-index:2; }
+  .btn { transition:background .12s ease, box-shadow .12s ease, transform .05s ease; box-shadow:0 1px 2px rgba(31,78,120,.22); }
+  .btn:active { transform:translateY(1px); }
+  .btn.ghost { box-shadow:none; }
+  .card { transition:box-shadow .15s ease, transform .15s ease; }
+  .card:hover { box-shadow:0 6px 16px rgba(15,42,67,.09); transform:translateY(-1px); }
+  a.btn { text-decoration:none; display:inline-block; }
+  /* --- resources module --- */
+  .subtabs { display:flex; gap:4px; margin:4px 0 16px; border-bottom:1px solid #e2e8f0; }
+  .subtabs button { background:none; border:0; border-bottom:2px solid transparent; padding:9px 14px; font-size:13px; color:#64748b; cursor:pointer; }
+  .subtabs button:hover { color:#334155; }
+  .subtabs button.active { color:var(--epc); border-bottom-color:var(--epc); font-weight:600; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .tag { font-size:10px; padding:1px 8px; border-radius:10px; font-weight:600; white-space:nowrap; }
+  .tag.rental { background:#fef3c7; color:#92400e; } .tag.owned { background:#dcfce7; color:#166534; }
+  .cat-Consumable { background:#e0f2fe; color:#075985; }
+  .cat-Tool { background:#ede9fe; color:#5b21b6; }
+  .cat-Equipment { background:#ffedd5; color:#9a3412; }
+  .form-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:9px; align-items:end; }
+  .form-grid label { font-size:11px; color:#64748b; display:flex; flex-direction:column; gap:3px; }
+  .form-grid input, .form-grid select { width:100%; }
+  .icon-btn { background:none; border:0; cursor:pointer; color:#94a3b8; font-size:13px; padding:2px 6px; border-radius:4px; transition:background .1s, color .1s; }
+  .icon-btn:hover { background:#f1f5f9; color:#dc2626; }
+  .icon-btn.edit:hover { color:var(--epc); }
 </style>
 </head>
 <body>
@@ -110,7 +139,7 @@
   </main>
 </div>
 <script>
-const TABS = ["Dashboard","Data","PMCCs","Network","Timeline","Gantt","Circuits","Logic","Exports","AI"];
+const TABS = ["Dashboard","Data","PMCCs","Network","Timeline","Gantt","Circuits","Resources","Logic","Exports","AI"];
 const NEEDS_DATA = new Set(["Dashboard","PMCCs","Network","Timeline","Gantt","Circuits"]);
 let current = "Dashboard";
 let pmcc = "";          // "" = all PMCCs
@@ -160,6 +189,7 @@ async function render(){
   if(current==="Timeline") return renderTimeline(v);
   if(current==="Gantt") return renderGantt(v);
   if(current==="Circuits") return renderCircuits(v);
+  if(current==="Resources") return renderResources(v);
   if(current==="Logic") return renderLogic(v);
   if(current==="Exports") return renderExports(v);
   if(current==="AI") return renderAI(v);
@@ -703,6 +733,195 @@ function renderExports(v){
       <a class="btn" href="/api/export/csv">CSV Schedule (all)</a>
     </div>
     <div class="muted" style="margin-top:14px">Excel (.xlsx) & PDF are available in the full FastAPI build. Primavera XER and the Aramco turnover pack are Phase 2.</div>`;
+}
+
+// ---------------- Resources — consumables, tools & tackles, equipment & rental ----------------
+let resSub = "Plan";           // Plan | Catalog | Assignments
+let resEditId = null;          // catalogue item being edited
+let resImportResult = null;
+let resActCache = {};          // pmcc_no -> activities (for the assignment picker)
+const RES_CATS = ["Consumable","Tool & Tackle","Equipment"];
+function catCls(c){ return "cat "+(c==="Tool & Tackle"?"cat-Tool":c==="Equipment"?"cat-Equipment":"cat-Consumable"); }
+function fmtMoney(n,cur){ return (cur?cur+" ":"")+(Math.round((n||0)*100)/100).toLocaleString(undefined,{maximumFractionDigits:2}); }
+function rval(id){ const e=document.getElementById(id); return e?String(e.value).trim():""; }
+function resRerender(){ renderResources(document.getElementById("view")); }
+
+async function renderResources(v){
+  const [resources, assignments, plan] = await Promise.all([
+    api("GET","/api/resources"),
+    api("GET","/api/resource-assignments"),
+    api("GET","/api/resource-plan"),
+  ]);
+  v.innerHTML=`<h1>Resources — Consumables, Tools &amp; Tackles, Equipment &amp; Rental</h1>
+    <div class="muted" style="margin-bottom:6px">Plan what each PMCC and activity needs, then roll up the rental cost across the schedule.</div>
+    <div class="subtabs" id="resSubs"></div><div id="resBody"></div>`;
+  const subs=v.querySelector("#resSubs");
+  [["Plan","Plan & Cost"],["Catalog","Catalogue"],["Assignments","Assignments"]].forEach(([key,lbl])=>{
+    const b=el(`<button>${lbl}</button>`); b.className=key===resSub?"active":"";
+    b.onclick=()=>{resSub=key;resRerender();}; subs.appendChild(b);
+  });
+  const body=v.querySelector("#resBody");
+  if(resSub==="Catalog") return resRenderCatalog(body,resources);
+  if(resSub==="Assignments") return resRenderAssignments(body,resources,assignments);
+  return resRenderPlan(body,plan);
+}
+
+function resRenderCatalog(body, resources){
+  const editing = resEditId? resources.find(r=>r.id===resEditId) : null;
+  const rows = resources.map(r=>`<tr>
+    <td><span class="${catCls(r.category)}">${esc(r.category)}</span></td>
+    <td><b>${esc(r.name)}</b>${r.code?` <span class="muted">${esc(r.code)}</span>`:''}</td>
+    <td>${esc(r.unit||'')}</td>
+    <td><span class="tag ${r.ownership==='Rental'?'rental':'owned'}">${esc(r.ownership)}</span></td>
+    <td class="num">${fmtMoney(r.rate,r.currency)}${r.ownership==='Rental'?' <span class="muted">/day</span>':''}</td>
+    <td>${esc(r.supplier||'')}</td>
+    <td style="text-align:right;white-space:nowrap">
+      <button class="icon-btn edit" title="Edit" onclick="resEdit(${r.id})">✎</button>
+      <button class="icon-btn" title="Delete" onclick="resDelete(${r.id})">✕</button></td></tr>`).join("")
+    || `<tr><td colspan="7" class="muted" style="padding:14px">No catalogue items yet — add one below or import a CSV.</td></tr>`;
+  body.innerHTML=`
+    <div class="panel" style="padding:0;overflow:hidden"><table>
+      <thead><tr><th>Category</th><th>Item</th><th>Unit</th><th>Type</th><th class="num">Rate</th><th>Supplier</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <div class="panel">
+      <h2>${editing?'Edit item':'Add catalogue item'}</h2>
+      <div class="form-grid">
+        <label>Category<select id="rcCat">${RES_CATS.map(c=>`<option ${editing&&editing.category===c?'selected':''}>${c}</option>`).join("")}</select></label>
+        <label>Name<input id="rcName" value="${editing?esc(editing.name):''}"></label>
+        <label>Code<input id="rcCode" value="${editing?esc(editing.code||''):''}"></label>
+        <label>Unit<input id="rcUnit" placeholder="unit / set / Nm3" value="${editing?esc(editing.unit||''):''}"></label>
+        <label>Type<select id="rcOwn"><option ${editing&&editing.ownership==='Owned'?'selected':''}>Owned</option><option ${editing&&editing.ownership==='Rental'?'selected':''}>Rental</option></select></label>
+        <label>Rate (per day if rental)<input id="rcRate" type="number" step="0.01" value="${editing?editing.rate:''}"></label>
+        <label>Currency<input id="rcCur" value="${editing?esc(editing.currency||'USD'):'USD'}"></label>
+        <label>Supplier<input id="rcSup" value="${editing?esc(editing.supplier||''):''}"></label>
+        <label style="grid-column:1/-1">Notes<input id="rcNotes" value="${editing?esc(editing.notes||''):''}"></label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" onclick="resSaveCatalog()">${editing?'Save changes':'Add item'}</button>
+        ${editing?'<button class="btn ghost" onclick="resEdit(null)">Cancel</button>':''}
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Import / Export</h2>
+      <div class="row" style="margin-bottom:8px"><a class="btn ghost" href="/api/export/resources-csv">Export Resources CSV</a></div>
+      <div class="row"><input type="file" id="rcFile" accept=".csv"><button class="btn" onclick="resImport()">Import CSV</button></div>
+      <div class="muted" style="margin-top:6px">Round-trippable: RESOURCE rows are the catalogue, ASSIGNMENT rows link items to a PMCC/activity.</div>
+      <div id="rcImportResult" style="margin-top:8px"></div>
+    </div>`;
+  if(resImportResult){
+    const h=body.querySelector("#rcImportResult");
+    h.innerHTML = resImportResult.ok
+      ? `<div style="color:#15803d;font-weight:600">✓ Imported ${resImportResult.resources_added} items · ${resImportResult.assignments_added} assignments</div>`+(resImportResult.errors||[]).map(e=>`<div class="err">✕ ${esc(e)}</div>`).join("")
+      : `<div class="err">✕ ${esc(((resImportResult.errors||['Import failed'])[0]))}</div>`;
+  }
+}
+function resEdit(id){ resEditId=id; resRerender(); }
+async function resDelete(id){ if(!confirm("Delete this item and any assignments that use it?"))return; await api("DELETE","/api/resources/"+id); if(resEditId===id)resEditId=null; resRerender(); }
+async function resSaveCatalog(){
+  const payload={category:rval("rcCat"),name:rval("rcName"),code:rval("rcCode"),unit:rval("rcUnit"),
+    ownership:rval("rcOwn"),rate:rval("rcRate"),currency:rval("rcCur"),supplier:rval("rcSup"),notes:rval("rcNotes")};
+  if(!payload.name){ alert("Name is required."); return; }
+  if(resEditId) await api("PUT","/api/resources/"+resEditId,payload); else await api("POST","/api/resources",payload);
+  resEditId=null; resRerender();
+}
+async function resImport(){
+  const f=document.getElementById("rcFile").files[0]; if(!f){ alert("Choose a CSV file first."); return; }
+  const text=await f.text();
+  try{ resImportResult=await api("POST","/api/import/resources-csv",{csv:text}); }
+  catch(e){ resImportResult={ok:false,errors:[String(e)]}; }
+  await refreshPmccList(); resRerender();
+}
+
+function resRenderAssignments(body, resources, assignments){
+  const resById={}; resources.forEach(r=>resById[r.id]=r);
+  const rows=assignments.map(a=>{ const r=resById[a.resource_id]||{};
+    return `<tr>
+      <td><b>${esc(r.name||'—')}</b> <span class="${catCls(r.category)}">${esc(r.category||'')}</span></td>
+      <td>${esc(a.scope)}</td><td>${esc(a.pmcc_no||'')}</td>
+      <td class="num">${a.quantity} ${esc(r.unit||'')}</td>
+      <td>${a.start_date?esc(a.start_date)+' → '+esc(a.finish_date||''):'<span class="muted">from schedule</span>'}</td>
+      <td style="text-align:right"><button class="icon-btn" title="Remove" onclick="resDelAssign(${a.id})">✕</button></td></tr>`;}).join("")
+    || `<tr><td colspan="6" class="muted" style="padding:14px">No assignments yet.</td></tr>`;
+  const noData=PMCCS.length===0;
+  body.innerHTML=`
+    <div class="panel" style="padding:0;overflow:hidden"><table>
+      <thead><tr><th>Resource</th><th>Scope</th><th>PMCC</th><th class="num">Qty</th><th>Window</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <div class="panel">
+      <h2>Assign a resource</h2>
+      ${resources.length===0?'<div class="muted">Add catalogue items first (Catalogue tab).</div>':
+        noData?'<div class="muted">Load or import PMCC data first (Data tab) to assign against a PMCC or activity.</div>':`
+      <div class="form-grid">
+        <label style="grid-column:1/-1">Resource<select id="raRes">${resources.map(r=>`<option value="${r.id}">${esc(r.name)} — ${esc(r.category)}</option>`).join("")}</select></label>
+        <label>Scope<select id="raScope" onchange="resScopeChange()"><option>PMCC</option><option>Activity</option></select></label>
+        <label>PMCC<select id="raPmcc" onchange="resPmccChange()">${PMCCS.map(p=>`<option value="${p.no}">${esc(p.no)} · ${esc((p.description||'').slice(0,26))}</option>`).join("")}</select></label>
+        <label id="raActWrap" style="display:none">Activity<select id="raAct"></select></label>
+        <label>Quantity<input id="raQty" type="number" step="0.01" value="1"></label>
+        <label>Start (optional)<input id="raStart" type="date"></label>
+        <label>Finish (optional)<input id="raFinish" type="date"></label>
+      </div>
+      <div class="row" style="margin-top:10px"><button class="btn" onclick="resSaveAssign()">Assign</button>
+        <span class="muted">Leave dates blank to inherit the activity/PMCC schedule window.</span></div>`}
+    </div>`;
+  if(!noData && resources.length) resPmccChange();
+}
+function resScopeChange(){ const w=document.getElementById("raActWrap"); if(w) w.style.display = rval("raScope")==="Activity"?"":"none"; }
+async function resPmccChange(){
+  resScopeChange();
+  const pno=rval("raPmcc"); if(!pno) return;
+  if(!resActCache[pno]) resActCache[pno]=await api("GET","/api/activities?pmcc="+encodeURIComponent(pno));
+  const sel=document.getElementById("raAct");
+  if(sel) sel.innerHTML=resActCache[pno].map(a=>`<option value="${a.id}">${esc(a.name)}${a.circuit?(' · '+esc(a.circuit)):''}</option>`).join("");
+}
+async function resSaveAssign(){
+  const scope=rval("raScope");
+  const payload={resource_id:Number(rval("raRes")),scope,pmcc_no:rval("raPmcc"),quantity:rval("raQty"),start_date:rval("raStart"),finish_date:rval("raFinish")};
+  if(scope==="Activity"){ const a=rval("raAct"); if(!a){ alert("Pick an activity."); return; } payload.activity_id=Number(a); }
+  await api("POST","/api/resource-assignments",payload); resRerender();
+}
+async function resDelAssign(id){ await api("DELETE","/api/resource-assignments/"+id); resRerender(); }
+
+function resRenderPlan(body, plan){
+  const cur=plan.currency;
+  const catRows=plan.by_category.map(c=>`<tr>
+      <td><span class="${catCls(c.category)}">${esc(c.category)}</span></td>
+      <td class="num">${c.items}</td><td class="num">${fmtMoney(c.cost,cur)}</td></tr>`).join("")
+    || `<tr><td colspan="3" class="muted" style="padding:12px">Nothing planned yet.</td></tr>`;
+  const resRows=plan.by_resource.map(r=>`<tr>
+      <td><b>${esc(r.name)}</b> <span class="muted">${esc(r.code||'')}</span></td>
+      <td><span class="${catCls(r.category)}">${esc(r.category)}</span></td>
+      <td><span class="tag ${r.ownership==='Rental'?'rental':'owned'}">${esc(r.ownership)}</span></td>
+      <td class="num">${r.total_quantity} ${esc(r.unit||'')}</td>
+      <td class="num">${r.peak_demand}</td>
+      <td class="num">${fmtMoney(r.total_cost,cur)}</td></tr>`).join("")
+    || `<tr><td colspan="6" class="muted" style="padding:12px">—</td></tr>`;
+  const lineRows=plan.lines.map(l=>`<tr>
+      <td>${esc(l.name)}</td><td>${esc(l.scope)}</td>
+      <td>${esc(l.pmcc_no)}${l.activity_label?(' · '+esc(l.activity_label)):''}</td>
+      <td class="num">${l.quantity} ${esc(l.unit||'')}</td>
+      <td>${l.start_date?esc(l.start_date)+' → '+esc(l.finish_date):'<span class="muted">—</span>'}</td>
+      <td class="num">${l.is_rental?l.working_days:'—'}</td>
+      <td class="num">${fmtMoney(l.cost,l.currency||cur)}</td></tr>`).join("")
+    || `<tr><td colspan="7" class="muted" style="padding:12px">No assignments yet — add some on the Assignments tab.</td></tr>`;
+  body.innerHTML=`
+    <div class="cards">
+      <div class="card"><div class="num">${fmtMoney(plan.total_cost,cur)}</div><div class="lbl">Total planned cost</div></div>
+      <div class="card"><div class="num crit">${fmtMoney(plan.rental_cost,cur)}</div><div class="lbl">Rental cost</div></div>
+      <div class="card"><div class="num">${plan.catalogue_size}</div><div class="lbl">Catalogue items</div></div>
+      <div class="card"><div class="num">${plan.assignment_count}</div><div class="lbl">Assignments</div></div>
+    </div>
+    <div class="panel" style="padding:0;overflow:hidden"><table>
+      <thead><tr><th>Category</th><th class="num">Items</th><th class="num">Cost</th></tr></thead><tbody>${catRows}</tbody></table></div>
+    <h2 style="margin:16px 0 6px">By resource</h2>
+    <div class="panel" style="padding:0;overflow:hidden"><table>
+      <thead><tr><th>Resource</th><th>Category</th><th>Type</th><th class="num">Total qty</th><th class="num">Peak</th><th class="num">Cost</th></tr></thead>
+      <tbody>${resRows}</tbody></table></div>
+    <h2 style="margin:16px 0 6px">Time-phased demand</h2>
+    <div class="muted" style="margin-bottom:6px">Windows and working-days come from the backward-CPM schedule; rental cost = rate × qty × working-days.</div>
+    <div class="panel" style="padding:0;overflow:hidden"><table>
+      <thead><tr><th>Resource</th><th>Scope</th><th>PMCC / Activity</th><th class="num">Qty</th><th>Window</th><th class="num">Days</th><th class="num">Cost</th></tr></thead>
+      <tbody>${lineRows}</tbody></table></div>
+    <div class="row" style="margin-top:12px"><a class="btn ghost" href="/api/export/resources-csv">Export Resources CSV</a></div>`;
 }
 
 let chat=[];

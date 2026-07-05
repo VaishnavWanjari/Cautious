@@ -336,3 +336,47 @@ def build_activities(code: str, description: str, special: str) -> list[tuple[st
 def priority_rank(priority: str) -> int:
     base = {"A": 1, "B": 2, "C": 3}.get(priority[:1].upper(), 3)
     return base
+
+
+# --- Resource & rental planning sample data ---------------------------------
+# A representative catalogue of consumables, tools & tackles and equipment a
+# commissioning team plans for, plus a few PMCC-scoped assignments so the
+# Resources module demonstrates itself on the GPT-3/4 sample. Each catalogue
+# tuple is (category, name, code, unit, ownership, rate, currency, supplier,
+# notes); rate is per-day for Rental items and unit-cost for Consumables.
+RESOURCES: list[tuple[str, str, str, str, str, float, str, str, str]] = [
+    ("Consumable", "Nitrogen (N2) for Inertization", "CON-N2", "Nm3",
+     "Rental", 3.5, "USD", "Air Products", "Bulk N2 for purging / inertization"),
+    ("Consumable", "Dry Air (Instrument grade)", "CON-DA", "Nm3",
+     "Owned", 0.8, "USD", "Site Utility", "Leak test with dry air"),
+    ("Consumable", "Degreasing / Cleaning Chemical", "CON-CHEM", "drum",
+     "Owned", 220.0, "USD", "Nalco", "Chemical cleaning / degreasing"),
+    ("Tool & Tackle", "Hydrotest Pump (350 bar)", "TT-HTP", "unit",
+     "Rental", 120.0, "USD", "Rental Co.", "High-pressure test pump"),
+    ("Tool & Tackle", "Calibrated Test Gauge Set", "TT-GAUGE", "set",
+     "Owned", 15.0, "USD", "Site Calibration Lab", "Pressure gauges w/ valid cert"),
+    ("Tool & Tackle", "Torque Wrench (hydraulic)", "TT-TW", "unit",
+     "Rental", 45.0, "USD", "Hydratight", "Flange make-up / box-up"),
+    ("Tool & Tackle", "Chain Block & Sling Set (5T)", "TT-CB", "set",
+     "Rental", 25.0, "USD", "Rental Co.", "Lifting tackle"),
+    ("Equipment", "Temporary Diesel Generator (500 kVA)", "EQ-DG", "unit",
+     "Rental", 350.0, "USD", "Aggreko", "Temporary power for no-load / loop check"),
+    ("Equipment", "Air Compressor (temporary)", "EQ-AC", "unit",
+     "Rental", 180.0, "USD", "Aggreko", "Temporary instrument / plant air"),
+    ("Equipment", "Nitrogen Vaporizer Skid", "EQ-N2V", "unit",
+     "Rental", 260.0, "USD", "Air Products", "N2 supply for large-volume purge"),
+]
+
+# (resource_code, pmcc_no, quantity) — assigned at PMCC scope so the rollup
+# spans that PMCC's whole schedule window.
+RESOURCE_ASSIGNMENTS: list[tuple[str, str, float]] = [
+    ("EQ-DG", "PMCC-01", 1),     # Substation & EDG — temporary power
+    ("TT-GAUGE", "PMCC-07", 2),  # Inst Air, Plant Air & Nitrogen
+    ("EQ-AC", "PMCC-07", 1),
+    ("CON-N2", "PMCC-15", 800),  # Booster compressor circuits — inertization
+    ("EQ-N2V", "PMCC-15", 1),
+    ("CON-CHEM", "PMCC-15", 4),
+    ("TT-HTP", "PMCC-14", 1),    # Inlet gas manifold — hydrotest
+    ("TT-TW", "PMCC-14", 2),
+    ("TT-CB", "PMCC-14", 1),
+]
