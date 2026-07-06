@@ -5,10 +5,17 @@ Run from the ``desktop`` folder:  pyinstaller build/app.spec
 Produces  dist/CommissioningManagementSuite.exe  (no install, no admin).
 """
 
+import os
+
 from PyInstaller.utils.hooks import collect_submodules
 
+# Paths in a .spec resolve relative to the spec file's own folder (build/),
+# not the invocation cwd — so anchor everything to the project root (desktop/).
+ROOT = os.path.abspath(os.path.join(SPECPATH, os.pardir))
+ENTRY = os.path.join(ROOT, "run.py")
+
 # Bundle the app's read-only assets (logo, etc.).
-datas = [("app/resources", "app/resources")]
+datas = [(os.path.join(ROOT, "app", "resources"), "app/resources")]
 
 # Libraries PyInstaller can miss when they are imported lazily.
 hiddenimports = (
@@ -23,8 +30,8 @@ excludes = [
 ]
 
 a = Analysis(
-    ["run.py"],
-    pathex=["."],
+    [ENTRY],
+    pathex=[ROOT],
     binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,
