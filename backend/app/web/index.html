@@ -4,13 +4,16 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>GPT-3/4 Gas Processing Train — Pre-Commissioning Tracker & Visualizer</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml" />
 <style>
   :root { --epc:#1F4E78; --epc-dark:#0f2a43; --crit:#e4572e; }
   * { box-sizing: border-box; }
   body { margin:0; font-family:"Segoe UI",system-ui,Arial,sans-serif; background:#f3f5f8; color:#1f2933; }
   .app { display:flex; height:100vh; }
   aside { width:212px; background:var(--epc-dark); color:#fff; display:flex; flex-direction:column; }
-  aside .brand { padding:14px 16px; border-bottom:1px solid rgba(255,255,255,.1); }
+  aside .brand { padding:14px 16px; border-bottom:1px solid rgba(255,255,255,.1); display:flex; align-items:center; gap:10px; }
+  aside .brand .brand-logo { width:36px; height:36px; flex:none; border-radius:9px; object-fit:contain; background:#fff; padding:3px; box-shadow:0 1px 3px rgba(0,0,0,.25); }
+  aside .brand .brand-text { min-width:0; }
   aside .brand b { display:block; font-size:13px; line-height:1.25; }
   aside .brand small { color:rgba(255,255,255,.55); font-size:10px; letter-spacing:.4px; text-transform:uppercase; display:block; margin-top:3px; }
   nav button { width:100%; text-align:left; background:none; border:0; color:rgba(255,255,255,.72);
@@ -18,6 +21,8 @@
   nav button:hover { background:rgba(255,255,255,.06); }
   nav button.active { background:var(--epc); color:#fff; }
   aside .foot { margin-top:auto; padding:12px 16px; font-size:11px; color:rgba(255,255,255,.5); border-top:1px solid rgba(255,255,255,.1); }
+  aside .foot .credit { margin-top:6px; color:rgba(255,255,255,.42); font-size:10px; letter-spacing:.3px; }
+  aside .foot .credit b { color:rgba(255,255,255,.7); font-weight:600; }
   main { flex:1; display:flex; flex-direction:column; min-width:0; }
   header { min-height:54px; background:#fff; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; padding:8px 18px; gap:12px; flex-wrap:wrap; }
   header .title { font-weight:700; color:#1f2933; font-size:15px; }
@@ -119,9 +124,15 @@
 <body>
 <div class="app">
   <aside>
-    <div class="brand"><b>GPT-3/4 Gas Processing Train</b><small>Pre-Commissioning Tracker &amp; Visualizer</small></div>
+    <div class="brand">
+      <img class="brand-logo" src="/logo.png" alt="Company logo" onerror="this.onerror=null;this.src='/logo.svg'">
+      <div class="brand-text"><b>GPT-3/4 Gas Processing Train</b><small>Pre-Commissioning Tracker &amp; Visualizer</small></div>
+    </div>
     <nav id="nav"></nav>
-    <div class="foot" id="aifoot">AI: …</div>
+    <div class="foot">
+      <div id="aifoot">AI: …</div>
+      <div class="credit">Designed by <b>Vaishnao Wanjari</b></div>
+    </div>
   </aside>
   <main>
     <header>

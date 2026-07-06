@@ -2,7 +2,7 @@ name: Build Windows exe
 
 on:
   push:
-    branches: ["claude/commissioning-scheduler-pro-2i7cro", "main"]
+    branches: ["claude/commissioning-scheduler-pro-2i7cro", "claude/epc-planning-desktop-app-ih4njp", "main"]
     paths:
       - "backend/**"
       - ".github/workflows/build-exe.yml"

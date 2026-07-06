@@ -1485,6 +1485,17 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/", "/index.html"):
             html = (WEB_DIR / "index.html").read_bytes()
             return self._bytes(html, "text/html; charset=utf-8")
+        # Static branding assets. Drop a "logo.png" (or .jpg/.svg) into app/web
+        # to override the shipped default emblem — no code change needed.
+        if path in ("/logo.png", "/logo.jpg", "/logo.jpeg", "/logo.svg", "/favicon.ico"):
+            fname = path.lstrip("/")
+            fp = WEB_DIR / fname
+            if fp.exists():
+                ext = fname.rsplit(".", 1)[-1].lower()
+                ctype = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                         "svg": "image/svg+xml", "ico": "image/x-icon"}.get(ext, "application/octet-stream")
+                return self._bytes(fp.read_bytes(), ctype)
+            return self._json({"error": "not found"}, 404)
         with STORE.lock:
             if path == "/api/health":
                 return self._json({"status": "ok", "mode": "standalone", "ai_available": bool(effective_api_key())})
