@@ -1,0 +1,13 @@
+# Runtime data (portable tree created next to the app/exe)
+data/
+
+# Build output
+dist/
+build/build/
+build/*.spec.bak
+__pycache__/
+*.pyc
+*.log
+
+# The root .gitignore excludes *.spec — keep our PyInstaller spec tracked.
+!build/app.spec

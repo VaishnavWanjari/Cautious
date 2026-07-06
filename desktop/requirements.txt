@@ -1,0 +1,21 @@
+# Commissioning Management Suite — desktop app dependencies.
+# Minimum-version pins so pip can resolve a wheel for Python 3.11–3.13.
+
+# --- GUI (Qt) — QtCharts ships with the full PySide6 metapackage, giving us
+#     fully-offline native charts (no web engine, no Plotly/Kaleido needed). ---
+PySide6>=6.6
+
+# --- persistence ---
+SQLAlchemy>=2.0
+
+# --- import / export ---
+pandas>=2.0
+openpyxl>=3.1
+
+# --- reporting ---
+reportlab>=4.0        # PDF
+python-docx>=1.1      # Word (.docx)
+python-pptx>=0.6.23   # PowerPoint (.pptx)
+
+# --- build (Windows portable exe) ---
+pyinstaller>=6.3
