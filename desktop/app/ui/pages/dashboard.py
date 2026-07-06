@@ -55,7 +55,7 @@ class Dashboard(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.NoShape)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
         outer.addWidget(self.scroll)
         self.refresh()
 
