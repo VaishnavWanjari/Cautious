@@ -1,3 +1,4 @@
+import '../models/enums.dart';
 import '../models/wedding_profile.dart';
 import '../models/wedding_task.dart';
 
