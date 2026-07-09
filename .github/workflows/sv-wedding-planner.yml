@@ -1,0 +1,53 @@
+name: SV Wedding Planner (Flutter)
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "sv_wedding_planner/**"
+      - ".github/workflows/sv-wedding-planner.yml"
+  pull_request:
+    paths:
+      - "sv_wedding_planner/**"
+
+defaults:
+  run:
+    working-directory: sv_wedding_planner
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # Generate android / ios / web platform folders (kept out of git) so the
+      # app builds on any machine, then fetch packages.
+      - name: Bootstrap platforms
+        run: flutter create --platforms=android,ios,web --project-name sv_wedding_planner --org com.svwedding .
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        run: flutter test
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Build web
+        run: flutter build web --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sv-wedding-planner-apk
+          path: sv_wedding_planner/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: warn
