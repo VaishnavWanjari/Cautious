@@ -70,8 +70,47 @@ jobs:
           tag_name: wedding-app-latest
           name: SV Wedding Planner — latest build
           body: |
-            Latest Android build of the SV Wedding Planner app.
-            Install `sv-wedding-planner.apk` on Android (enable "install from
-            unknown sources"). Rebuilt automatically on each push.
+            Latest builds of the SV Wedding Planner app.
+            - Android: install `sv-wedding-planner.apk` (enable "install from unknown sources").
+            - iOS: `sv-wedding-planner-unsigned.ipa` is UNSIGNED — sideload it with
+              AltStore / Sideloadly / Xcode using your own Apple ID (App Store /
+              TestFlight distribution needs an Apple Developer account).
+            Rebuilt automatically on each push.
           prerelease: true
           files: sv_wedding_planner/build/app/outputs/flutter-apk/sv-wedding-planner.apk
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Bootstrap platforms
+        run: flutter create --platforms=ios,android,web --project-name sv_wedding_planner --org com.svwedding .
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Generate launcher icons from logo
+        run: dart run flutter_launcher_icons
+      - name: Build iOS (unsigned)
+        run: flutter build ios --release --no-codesign
+      - name: Package unsigned IPA
+        run: |
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -qr sv-wedding-planner-unsigned.ipa Payload
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sv-wedding-planner-ipa
+          path: sv_wedding_planner/build/ios/iphoneos/sv-wedding-planner-unsigned.ipa
+          if-no-files-found: warn
+      - name: Publish IPA to Releases
+        if: github.ref == 'refs/heads/claude/sv-wedding-planner-app-stf10m' || github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: wedding-app-latest
+          prerelease: true
+          files: sv_wedding_planner/build/ios/iphoneos/sv-wedding-planner-unsigned.ipa

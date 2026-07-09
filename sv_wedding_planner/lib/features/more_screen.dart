@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/providers.dart';
+import 'connect_account_screen.dart';
 import 'insights_screen.dart';
 import 'modules.dart';
 import 'onboarding_screen.dart';
@@ -38,6 +39,14 @@ class MoreScreen extends ConsumerWidget {
           () => const HoneymoonScreen()),
       _MoreTile(Icons.tune, 'Wedding profile', 'Re-run personalization', Colors.blueGrey,
           () => const OnboardingScreen(editing: true)),
+      _MoreTile(
+          Icons.account_circle,
+          'Account',
+          ref.watch(accountProvider).connected
+              ? 'Connected · ${ref.watch(accountProvider).email}'
+              : 'Connect Gmail for AI Copilot',
+          Colors.green,
+          () => const ConnectAccountScreen()),
     ];
 
     return ListView(

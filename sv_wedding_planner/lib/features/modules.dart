@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/format.dart';
-import '../data/seed_data.dart';
+import '../data/live_data.dart';
 import '../models/other_models.dart';
 import '../state/providers.dart';
 import '../widgets/common.dart';
+import 'connect_account_screen.dart';
 
 // ===========================================================================
 // Vendors
@@ -161,12 +162,16 @@ class ShoppingScreen extends ConsumerWidget {
         onPressed: () => _editShopping(context, ref, null),
         child: const Icon(Icons.add),
       ),
-      body: items.isEmpty
-          ? const EmptyState(icon: Icons.shopping_bag, message: 'No shopping items yet.')
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-              children: [
-                for (final entry in groups.entries) ...[
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+        children: [
+          const _ShoppingSuggestions(),
+          if (items.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 24),
+              child: EmptyState(icon: Icons.shopping_bag, message: 'No items yet. Add from picks above or the + button.'),
+            ),
+          for (final entry in groups.entries) ...[
                   SectionHeader(entry.key,
                       subtitle: '${Fmt.inr(entry.value.fold<int>(0, (s, i) => s + i.budget))} budgeted'),
                   for (final it in entry.value)
@@ -188,6 +193,86 @@ class ShoppingScreen extends ConsumerWidget {
                 ],
               ],
             ),
+    );
+  }
+}
+
+/// "Popular picks" — real brands/price-from data from the live-data service.
+/// Tapping a pick adds it straight to the user's shopping list.
+class _ShoppingSuggestions extends ConsumerWidget {
+  const _ShoppingSuggestions();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final service = ref.watch(liveDataServiceProvider);
+    final theme = Theme.of(context);
+    return FutureBuilder<List<ShoppingSuggestion>>(
+      future: service.shoppingSuggestions(),
+      builder: (context, snap) {
+        if (!snap.hasData || snap.data!.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SectionHeader('Popular picks', subtitle: 'Real brands · tap to add'),
+            SizedBox(
+              height: 116,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: snap.data!.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (_, i) {
+                  final s = snap.data![i];
+                  return SizedBox(
+                    width: 200,
+                    child: Card(
+                      child: InkWell(
+                        onTap: () {
+                          ref.read(shoppingProvider.notifier).add(ShoppingItem(
+                                name: s.item,
+                                forPerson: s.forPerson,
+                                budget: s.priceFromInr,
+                                store: s.brand,
+                              ));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Added "${s.item}"')),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(s.item,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.w700)),
+                              Text(s.brand,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant)),
+                              Row(
+                                children: [
+                                  TintPill(s.forPerson, color: Colors.indigo),
+                                  const Spacer(),
+                                  Text('${Fmt.inr(s.priceFromInr)}+',
+                                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        );
+      },
     );
   }
 }
@@ -416,7 +501,10 @@ class HoneymoonScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
+    final service = ref.watch(liveDataServiceProvider);
+    final connected = ref.watch(accountProvider).connected;
     final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Honeymoon Planner')),
       body: ListView(
@@ -428,22 +516,66 @@ class HoneymoonScreen extends ConsumerWidget {
               leading: const Icon(Icons.flight_takeoff),
               title: Text('Departing ${Fmt.date(profile.honeymoonDate)}',
                   style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: const Text('Suggested destinations for your season & budget'),
+              subtitle: const Text('Real 2026 destinations · indicative land-only cost per couple'),
+            ),
+          ),
+          if (!connected)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.bolt, color: Colors.orange),
+                title: const Text('Connect Gmail for live prices'),
+                subtitle: const Text('Unlock AI-fetched live packages & tailored picks'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ConnectAccountScreen()),
+                ),
+              ),
+            ),
+          const SizedBox(height: 8),
+          FutureBuilder<List<HoneymoonDestination>>(
+            future: service.honeymoonSuggestions(),
+            builder: (context, snap) {
+              if (!snap.hasData) {
+                return const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              return Column(
+                children: [
+                  for (final d in snap.data!)
+                    Card(
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: d.passportRequired
+                              ? theme.colorScheme.secondaryContainer
+                              : Colors.green.withOpacity(0.2),
+                          child: Icon(d.passportRequired ? Icons.public : Icons.beach_access,
+                              size: 20),
+                        ),
+                        title: Text(d.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text('${d.summary}\n${d.bestSeason} · ${d.visa}'),
+                        isThreeLine: true,
+                        trailing: Text('${Fmt.inr(d.costPerCoupleInr)}+',
+                            style: theme.textTheme.labelLarge
+                                ?.copyWith(fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Text(
+              service.isLive
+                  ? 'Live prices'
+                  : 'Indicative 2026 land-only costs per couple (excl. airfare).',
+              style: theme.textTheme.labelSmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ),
           const SizedBox(height: 8),
-          for (final d in SeedData.honeymoonDestinations)
-            Card(
-              child: ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.place)),
-                title: Text(d.$1, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text(d.$2),
-                trailing: Text(Fmt.inr(d.$3),
-                    style: theme.textTheme.labelLarge
-                        ?.copyWith(fontWeight: FontWeight.w700)),
-              ),
-            ),
-          const SizedBox(height: 16),
           Text('Honeymoon checklist',
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),

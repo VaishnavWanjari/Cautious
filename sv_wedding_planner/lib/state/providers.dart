@@ -1,11 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/knowledge_base.dart';
+import '../data/live_data.dart';
 import '../data/local_store.dart';
+import '../engine/budget_allocation_engine.dart';
 import '../engine/insights_engine.dart';
 import '../engine/personalization_engine.dart';
 import '../engine/reminder_engine.dart';
 import '../engine/timeline_engine.dart';
+import '../models/account.dart';
 import '../models/enums.dart';
 import '../models/insight.dart';
 import '../models/other_models.dart';
@@ -19,11 +22,15 @@ final localStoreProvider = Provider<LocalStore>(
 );
 
 final knowledgeBaseProvider = Provider<KnowledgeBase>((ref) => const KnowledgeBase());
+final liveDataServiceProvider =
+    Provider<LiveDataService>((ref) => const CuratedLiveDataService());
 final personalizationEngineProvider =
     Provider<PersonalizationEngine>((ref) => const PersonalizationEngine());
 final timelineEngineProvider = Provider<TimelineEngine>((ref) => const TimelineEngine());
 final insightsEngineProvider = Provider<InsightsEngine>((ref) => const InsightsEngine());
 final reminderEngineProvider = Provider<ReminderEngine>((ref) => const ReminderEngine());
+final budgetAllocationEngineProvider =
+    Provider<BudgetAllocationEngine>((ref) => const BudgetAllocationEngine());
 
 /// Raw master task list loaded from the knowledge engine asset.
 final masterTasksProvider = FutureProvider<List<WeddingTask>>((ref) async {
@@ -171,6 +178,13 @@ class BudgetNotifier extends StateNotifier<List<BudgetItem>> {
   void add(BudgetItem v) { state = [...state, v]; _persist(); }
   void update(BudgetItem v) { state = [for (final x in state) x.id == v.id ? v : x]; _persist(); }
   void remove(String id) { state = state.where((x) => x.id != id).toList(); _persist(); }
+
+  /// Bifurcate a single total across categories using planner thumb-rules,
+  /// preserving any actual-spent amounts already recorded.
+  void allocateFrom(int total) {
+    state = const BudgetAllocationEngine().allocate(total, previous: state);
+    _persist();
+  }
 }
 
 final budgetProvider = StateNotifierProvider<BudgetNotifier, List<BudgetItem>>(
@@ -199,3 +213,32 @@ class GuestsNotifier extends StateNotifier<List<Guest>> {
 
 final guestsProvider = StateNotifierProvider<GuestsNotifier, List<Guest>>(
     (ref) => GuestsNotifier(ref.watch(localStoreProvider)));
+
+// ---------------------------------------------------------------------------
+// Connected account (Gmail) — gates the AI Copilot & live suggestions.
+// ---------------------------------------------------------------------------
+class AccountNotifier extends StateNotifier<AccountState> {
+  final LocalStore store;
+  AccountNotifier(this.store)
+      : super(AccountState(
+          connected: store.accountConnected,
+          email: store.accountEmail,
+        ));
+
+  /// Connects a Google/Gmail account. Real Google OAuth (`google_sign_in`)
+  /// slots in here — on success, persist the returned email.
+  Future<void> connect(String email) async {
+    state = AccountState(connected: true, email: email);
+    await store.setAccount(true, email);
+  }
+
+  Future<void> disconnect() async {
+    state = const AccountState();
+    await store.setAccount(false, '');
+  }
+}
+
+final accountProvider =
+    StateNotifierProvider<AccountNotifier, AccountState>((ref) {
+  return AccountNotifier(ref.watch(localStoreProvider));
+});

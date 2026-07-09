@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../state/providers.dart';
+import 'connect_account_screen.dart';
 import 'dashboard_screen.dart';
 import 'tasks_screen.dart';
 import 'budget_screen.dart';
@@ -25,14 +27,28 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     MoreScreen(),
   ];
 
+  void _openCopilot() {
+    void openCopilot() => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const CopilotScreen()),
+        );
+    if (ref.read(accountProvider).connected) {
+      openCopilot();
+    } else {
+      // Gate the Copilot: ask the user to connect Gmail first, then open it.
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ConnectAccountScreen(onConnected: openCopilot),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(child: _pages[_index]),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const CopilotScreen()),
-        ),
+        onPressed: _openCopilot,
         icon: const Icon(Icons.auto_awesome),
         label: const Text('Copilot'),
       ),

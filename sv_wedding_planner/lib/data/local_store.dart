@@ -15,6 +15,8 @@ class LocalStore {
   static const _kShopping = 'shopping';
   static const _kGuests = 'guests';
   static const _kOnboarded = 'onboarded';
+  static const _kAccountConnected = 'account_connected';
+  static const _kAccountEmail = 'account_email';
 
   final SharedPreferences prefs;
   LocalStore(this.prefs);
@@ -24,6 +26,13 @@ class LocalStore {
 
   bool get onboarded => prefs.getBool(_kOnboarded) ?? false;
   Future<void> setOnboarded(bool v) => prefs.setBool(_kOnboarded, v);
+
+  bool get accountConnected => prefs.getBool(_kAccountConnected) ?? false;
+  String get accountEmail => prefs.getString(_kAccountEmail) ?? '';
+  Future<void> setAccount(bool connected, String email) async {
+    await prefs.setBool(_kAccountConnected, connected);
+    await prefs.setString(_kAccountEmail, email);
+  }
 
   // ---- Profile ----
   WeddingProfile? loadProfile() {

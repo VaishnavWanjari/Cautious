@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/format.dart';
+import '../engine/budget_allocation_engine.dart';
 import '../models/enums.dart';
 import '../models/wedding_profile.dart';
 import '../state/providers.dart';
@@ -152,13 +153,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             label: '${_p.guestCount}',
             onChanged: (v) => setState(() => _p = _p.copyWith(guestCount: v.round())),
           ),
-          _label('Budget: ${Fmt.inr(_p.budget)}'),
+          _label('Total budget: ${Fmt.inr(_p.budget)}'),
           Slider(
             value: _p.budget.toDouble().clamp(500000, 20000000).toDouble(),
             min: 500000, max: 20000000, divisions: 39,
             label: Fmt.inr(_p.budget),
             onChanged: (v) => setState(() => _p = _p.copyWith(budget: v.round())),
           ),
+          _BudgetSplitPreview(total: _p.budget),
           const SizedBox(height: 8),
 
           _switch('Reception included', _p.receptionIncluded,
@@ -194,6 +196,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       coupleBride: _bride.text.trim(),
     );
     ref.read(profileProvider.notifier).update(finalProfile);
+    // Budget-first: if no budget lines exist yet, bifurcate the total by
+    // planner thumb-rules so the user starts with a ready allocation.
+    if (ref.read(budgetProvider).isEmpty) {
+      ref.read(budgetProvider.notifier).allocateFrom(finalProfile.budget);
+    }
     if (widget.editing) {
       Navigator.of(context).pop();
     } else {
@@ -248,4 +255,44 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         'groom' => WeddingSide.groomSide,
         _ => WeddingSide.both,
       };
+}
+
+/// Live thumb-rule split of the total budget, shown as chips during onboarding.
+class _BudgetSplitPreview extends StatelessWidget {
+  final int total;
+  const _BudgetSplitPreview({required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final preview = const BudgetAllocationEngine().preview(total).take(6).toList();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('We\'ll auto-split this by thumb rules:',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final e in preview)
+                Chip(
+                  visualDensity: VisualDensity.compact,
+                  label: Text('${e.key} ${Fmt.inr(e.value)}',
+                      style: const TextStyle(fontSize: 11)),
+                ),
+              Chip(
+                visualDensity: VisualDensity.compact,
+                label: const Text('+ more', style: TextStyle(fontSize: 11)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

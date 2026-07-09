@@ -21,15 +21,42 @@ The app is deployed to GitHub Pages on every push:
 > `Deploy SV Wedding Planner (Web)` workflow creates the `gh-pages` branch and
 > the site goes live within a minute of the next push.
 
-## 📱 Download the Android APK
+## 📱 Download the app
 
-Every push publishes a fresh signed-debug APK as a GitHub Release asset with a
-stable, public, direct-download link:
+Every push publishes fresh builds as GitHub Release assets:
 
-**https://github.com/VaishnavWanjari/Cautious/releases/download/wedding-app-latest/sv-wedding-planner.apk**
+- **Android APK (direct install):**
+  https://github.com/VaishnavWanjari/Cautious/releases/download/wedding-app-latest/sv-wedding-planner.apk
+- **iOS IPA (unsigned):**
+  https://github.com/VaishnavWanjari/Cautious/releases/download/wedding-app-latest/sv-wedding-planner-unsigned.ipa
 
-(Release page: https://github.com/VaishnavWanjari/Cautious/releases/tag/wedding-app-latest —
-on Android, enable "install from unknown sources" to install.)
+Release page: https://github.com/VaishnavWanjari/Cautious/releases/tag/wedding-app-latest
+
+> **Android:** enable "install from unknown sources" to install.
+> **iOS:** the `.ipa` is **unsigned** — Apple blocks direct install. Sideload it
+> with **AltStore / Sideloadly / Xcode** using your own Apple ID, or distribute
+> via **TestFlight** with an Apple Developer account ($99/yr).
+
+## Budget-first planning
+
+Onboarding asks for **one number — your total budget** — and the app
+**bifurcates it by planner thumb-rules** (Venue 17%, Catering 25%, Jewellery 11%,
+… grounded in 2026 Indian-wedding data) into every category. Re-split anytime
+from the Budget tab; recorded spends are preserved.
+
+## Real-world suggestions
+
+Honeymoon destinations and shopping picks use **real 2026 data** (indicative
+land-only cost per couple, real brands) behind a `LiveDataService` abstraction
+that can be swapped for a live online feed. Connect a Gmail account to unlock
+AI-fetched **live** prices and tailored picks.
+
+## AI Copilot access
+
+The AI Wedding Copilot and live suggestions are gated behind a **connected
+Google/Gmail account** (`accountProvider`); the offline roadmap, budget and
+reminders always work without it. The connect flow is a stand-in ready for real
+`google_sign_in` OAuth.
 
 ---
 

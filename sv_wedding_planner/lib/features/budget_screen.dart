@@ -83,7 +83,13 @@ class BudgetScreen extends ConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
+        FilledButton.tonalIcon(
+          onPressed: () => _confirmAllocate(context, ref, profile.budget),
+          icon: const Icon(Icons.auto_awesome),
+          label: Text('Auto-split ${Fmt.inr(profile.budget)} by thumb rules'),
+        ),
+        const SizedBox(height: 4),
         SectionHeader('Categories', trailing: IconButton(
           icon: const Icon(Icons.add),
           onPressed: () => _editBudget(context, ref, null),
@@ -133,6 +139,34 @@ class _BudgetRow extends ConsumerWidget {
       ),
     );
   }
+}
+
+void _confirmAllocate(BuildContext context, WidgetRef ref, int total) {
+  showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Auto-split budget'),
+      content: Text(
+        'Bifurcate your ${Fmt.inr(total)} budget across all categories using '
+        'planner thumb-rules (Venue 17%, Catering 25%, Jewellery 11%, and so '
+        'on). Amounts already spent are kept.',
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () {
+            final messenger = ScaffoldMessenger.of(context);
+            ref.read(budgetProvider.notifier).allocateFrom(total);
+            Navigator.pop(context);
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Budget split across categories.')),
+            );
+          },
+          child: const Text('Split it'),
+        ),
+      ],
+    ),
+  );
 }
 
 void _editBudget(BuildContext context, WidgetRef ref, BudgetItem? existing) {
