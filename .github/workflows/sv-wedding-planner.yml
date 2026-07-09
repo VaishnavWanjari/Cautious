@@ -10,6 +10,9 @@ on:
     paths:
       - "sv_wedding_planner/**"
 
+permissions:
+  contents: write
+
 defaults:
   run:
     working-directory: sv_wedding_planner
@@ -48,9 +51,27 @@ jobs:
       - name: Build web
         run: flutter build web --release
 
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/sv-wedding-planner.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: sv-wedding-planner-apk
-          path: sv_wedding_planner/build/app/outputs/flutter-apk/app-release.apk
+          path: sv_wedding_planner/build/app/outputs/flutter-apk/sv-wedding-planner.apk
           if-no-files-found: warn
+
+      # Publish the APK as a GitHub Release asset so it has a stable, public,
+      # direct-download link (no GitHub login required).
+      - name: Publish APK to Releases
+        if: github.ref == 'refs/heads/claude/sv-wedding-planner-app-stf10m' || github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: wedding-app-latest
+          name: SV Wedding Planner — latest build
+          body: |
+            Latest Android build of the SV Wedding Planner app.
+            Install `sv-wedding-planner.apk` on Android (enable "install from
+            unknown sources"). Rebuilt automatically on each push.
+          prerelease: true
+          files: sv_wedding_planner/build/app/outputs/flutter-apk/sv-wedding-planner.apk

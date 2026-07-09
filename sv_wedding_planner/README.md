@@ -21,8 +21,15 @@ The app is deployed to GitHub Pages on every push:
 > `Deploy SV Wedding Planner (Web)` workflow creates the `gh-pages` branch and
 > the site goes live within a minute of the next push.
 
-Native **Android APK** is built and uploaded as a CI artifact on every push
-(Actions → latest run → Artifacts → `sv-wedding-planner-apk`).
+## 📱 Download the Android APK
+
+Every push publishes a fresh signed-debug APK as a GitHub Release asset with a
+stable, public, direct-download link:
+
+**https://github.com/VaishnavWanjari/Cautious/releases/download/wedding-app-latest/sv-wedding-planner.apk**
+
+(Release page: https://github.com/VaishnavWanjari/Cautious/releases/tag/wedding-app-latest —
+on Android, enable "install from unknown sources" to install.)
 
 ---
 
