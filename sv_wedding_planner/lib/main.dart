@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme.dart';
 import 'data/local_store.dart';
 import 'data/seed_data.dart';
-import 'features/home_shell.dart';
-import 'features/onboarding_screen.dart';
+import 'features/splash_screen.dart';
 import 'state/providers.dart';
 
 Future<void> main() async {
@@ -35,14 +34,13 @@ class SvWeddingApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final onboarded = ref.watch(localStoreProvider).onboarded;
     return MaterialApp(
       title: 'SV Wedding Planner',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
-      home: onboarded ? const HomeShell() : const OnboardingScreen(),
+      home: const SplashScreen(),
     );
   }
 }

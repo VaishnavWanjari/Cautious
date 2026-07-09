@@ -7,6 +7,7 @@ import '../models/enums.dart';
 import '../models/wedding_task.dart';
 import '../models/insight.dart';
 import '../state/providers.dart';
+import '../widgets/brand.dart';
 import '../widgets/common.dart';
 import 'insights_screen.dart';
 import 'tasks_screen.dart';
@@ -153,18 +154,26 @@ class _Greeting extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final couple = [groom, bride].where((s) => s.isNotEmpty).join(' & ');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Text('SV Wedding Planner',
-            style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2)),
-        const SizedBox(height: 2),
-        Text(couple.isEmpty ? 'Your Wedding' : couple,
-            style: theme.textTheme.headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w800)),
+        const BrandLogo(size: 52, radius: 14),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('SV WEDDING PLANNER',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2)),
+              const SizedBox(height: 2),
+              Text(couple.isEmpty ? 'Your Wedding' : couple,
+                  style: theme.textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w800)),
+            ],
+          ),
+        ),
       ],
     );
   }

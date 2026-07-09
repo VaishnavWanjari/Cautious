@@ -10,6 +10,20 @@ Pre-loaded with the demo configuration from the brief:
 **Vaishnav Wanjari & Shefali Verma · Wedding 25 Nov 2026 · Reception 29 Nov ·
 Honeymoon early Dec · Maharashtrian Hindu wedding.**
 
+## 🌐 Live web app
+
+The app is deployed to GitHub Pages on every push:
+
+**https://vaishnavwanjari.github.io/Cautious/**
+
+> First-time activation (repo owner, one click): **Settings → Pages → Source:
+> "Deploy from a branch" → Branch: `gh-pages` / `(root)`**. The
+> `Deploy SV Wedding Planner (Web)` workflow creates the `gh-pages` branch and
+> the site goes live within a minute of the next push.
+
+Native **Android APK** is built and uploaded as a CI artifact on every push
+(Actions → latest run → Artifacts → `sv-wedding-planner-apk`).
+
 ---
 
 ## What's implemented

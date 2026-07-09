@@ -5,6 +5,7 @@ import '../core/format.dart';
 import '../models/enums.dart';
 import '../models/wedding_profile.dart';
 import '../state/providers.dart';
+import '../widgets/brand.dart';
 import 'home_shell.dart';
 
 /// Conversational interview that captures the [WeddingProfile]. As the user
@@ -72,6 +73,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         children: [
+          if (!widget.editing) ...[
+            const SizedBox(height: 4),
+            const Center(child: BrandLogo(size: 88, radius: 22)),
+            const SizedBox(height: 16),
+          ],
           Card(
             color: theme.colorScheme.primaryContainer,
             child: Padding(

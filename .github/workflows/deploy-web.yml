@@ -1,0 +1,66 @@
+name: Deploy SV Wedding Planner (Web)
+
+# Builds the Flutter web app and publishes it to the `gh-pages` branch so it
+# goes live at https://<owner>.github.io/Cautious/
+#
+# One-time setup by the repo owner:
+#   Settings → Pages → Source: "Deploy from a branch" → Branch: gh-pages / (root)
+
+on:
+  push:
+    branches:
+      - claude/sv-wedding-planner-app-stf10m
+      - main
+    paths:
+      - "sv_wedding_planner/**"
+      - ".github/workflows/deploy-web.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: sv_wedding_planner
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Bootstrap platforms
+        run: flutter create --platforms=android,ios,web --project-name sv_wedding_planner --org com.svwedding .
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate launcher icons & favicon from logo
+        run: dart run flutter_launcher_icons
+
+      - name: Brand the web shell
+        run: |
+          sed -i 's|<title>.*</title>|<title>SV Wedding Planner</title>|' web/index.html
+          sed -i 's|"name": *"[^"]*"|"name": "SV Wedding Planner"|' web/manifest.json || true
+          sed -i 's|"short_name": *"[^"]*"|"short_name": "SV Wedding"|' web/manifest.json || true
+
+      - name: Build web
+        run: flutter build web --release --base-href /Cautious/
+
+      - name: Add SPA + Jekyll bypass files
+        run: |
+          cp build/web/index.html build/web/404.html
+          touch build/web/.nojekyll
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./sv_wedding_planner/build/web
+          publish_branch: gh-pages
+          force_orphan: true
