@@ -26,6 +26,8 @@ Honeymoon early Dec · Maharashtrian Hindu wedding.**
 | Shopping planner grouped by person | ✅ |
 | Guests & family with RSVP + seat tracking | ✅ |
 | Honeymoon planner with destination suggestions & checklist | ✅ |
+| **Proactive AI Insights engine** (overdue, critical-path risk, blocked dependencies, budget overspend, unbooked vendors, pending payments) | ✅ |
+| **Reminders agenda** derived from the timeline (overdue-first, grouped by month) | ✅ |
 | AI Wedding Copilot (offline, rule-based; LLM-swappable) | ✅ |
 | Offline-first persistence (shared_preferences) | ✅ |
 | Material 3 theme, light + dark | ✅ |
@@ -46,7 +48,7 @@ Clean, layered, MVVM-ish with Riverpod:
 lib/
   models/       WeddingProfile, WeddingTask (rich metadata), Vendor/Budget/Shopping/Guest, enums
   data/         KnowledgeBase (asset loader), LocalStore (persistence), SeedData (demo config)
-  engine/       PersonalizationEngine, TimelineEngine, CopilotEngine
+  engine/       PersonalizationEngine, TimelineEngine, InsightsEngine, ReminderEngine, CopilotEngine
   state/        Riverpod providers (profile, roadmap, budget, vendors, …)
   core/         theme, formatting
   widgets/      shared UI
@@ -91,4 +93,6 @@ APK + web bundle on every push, and uploads the APK as an artifact.
 
 Firebase Auth/Firestore/Storage sync · real LLM Copilot · vendor marketplace ·
 digital invitation builder · AR venue preview · multi-user collaboration roles ·
-push notifications & reminders · PDF/Excel report export.
+**OS push notifications** (the reminder agenda already exists in-app; wiring it to
+`flutter_local_notifications`/FCM needs native config — Android core-library
+desugaring + an FCM project) · PDF/Excel report export.

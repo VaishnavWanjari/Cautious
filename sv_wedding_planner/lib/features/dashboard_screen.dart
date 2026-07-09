@@ -5,8 +5,10 @@ import '../core/format.dart';
 import '../core/theme.dart';
 import '../models/enums.dart';
 import '../models/wedding_task.dart';
+import '../models/insight.dart';
 import '../state/providers.dart';
 import '../widgets/common.dart';
+import 'insights_screen.dart';
 import 'tasks_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -24,6 +26,7 @@ class DashboardScreen extends ConsumerWidget {
 
     final plannedSpend = budget.fold<int>(0, (s, b) => s + b.actual);
     final bookedVendors = vendors.where((v) => v.booked).length;
+    final insights = ref.watch(insightsProvider);
 
     return roadmapAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -85,6 +88,8 @@ class DashboardScreen extends ConsumerWidget {
           _FunnelStrip(roadmap.funnel),
 
           const SizedBox(height: 12),
+          if (insights.isNotEmpty) _InsightsBanner(insights),
+
           // Stat grid.
           GridView.count(
             crossAxisCount: 2,
@@ -305,6 +310,81 @@ class _FocusTile extends ConsumerWidget {
         ),
         trailing: TintPill(t.priority.label, color: priorityColor(t.priority)),
         onTap: () => showTaskDetail(context, ref, scheduled),
+      ),
+    );
+  }
+}
+
+class _InsightsBanner extends StatelessWidget {
+  final List<Insight> insights;
+  const _InsightsBanner(this.insights);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final top = insights.first;
+    final critical = insights.where((i) => i.severity == InsightSeverity.critical).length;
+    final warnings = insights.where((i) => i.severity == InsightSeverity.warning).length;
+    final (color, icon) = switch (top.severity) {
+      InsightSeverity.critical => (Colors.redAccent, Icons.error_outline),
+      InsightSeverity.warning => (Colors.orange, Icons.warning_amber_rounded),
+      InsightSeverity.info => (Colors.blue, Icons.info_outline),
+      InsightSeverity.positive => (Colors.green, Icons.check_circle_outline),
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        child: InkWell(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const InsightsScreen()),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text('AI Insights',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w700)),
+                          const Spacer(),
+                          if (critical > 0)
+                            TintPill('$critical critical', color: Colors.redAccent)
+                          else if (warnings > 0)
+                            TintPill('$warnings warnings', color: Colors.orange),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(top.title,
+                          style: theme.textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700)),
+                      Text(top.detail,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

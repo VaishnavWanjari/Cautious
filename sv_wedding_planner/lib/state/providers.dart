@@ -2,10 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/knowledge_base.dart';
 import '../data/local_store.dart';
+import '../engine/insights_engine.dart';
 import '../engine/personalization_engine.dart';
+import '../engine/reminder_engine.dart';
 import '../engine/timeline_engine.dart';
 import '../models/enums.dart';
+import '../models/insight.dart';
 import '../models/other_models.dart';
+import '../models/reminder.dart';
 import '../models/wedding_profile.dart';
 import '../models/wedding_task.dart';
 
@@ -18,6 +22,8 @@ final knowledgeBaseProvider = Provider<KnowledgeBase>((ref) => const KnowledgeBa
 final personalizationEngineProvider =
     Provider<PersonalizationEngine>((ref) => const PersonalizationEngine());
 final timelineEngineProvider = Provider<TimelineEngine>((ref) => const TimelineEngine());
+final insightsEngineProvider = Provider<InsightsEngine>((ref) => const InsightsEngine());
+final reminderEngineProvider = Provider<ReminderEngine>((ref) => const ReminderEngine());
 
 /// Raw master task list loaded from the knowledge engine asset.
 final masterTasksProvider = FutureProvider<List<WeddingTask>>((ref) async {
@@ -113,6 +119,32 @@ final todaysFocusProvider = Provider<List<ScheduledTask>>((ref) {
   final roadmap = ref.watch(roadmapProvider);
   return roadmap.maybeWhen(
     data: (r) => ref.read(timelineEngineProvider).todaysFocus(r.scheduled, DateTime.now()),
+    orElse: () => const [],
+  );
+});
+
+/// In-app reminder agenda derived from the scheduled roadmap.
+final remindersProvider = Provider<List<Reminder>>((ref) {
+  final roadmap = ref.watch(roadmapProvider);
+  return roadmap.maybeWhen(
+    data: (r) => ref.read(reminderEngineProvider).build(r.scheduled),
+    orElse: () => const [],
+  );
+});
+
+/// Proactive AI insights derived from the roadmap, budget and vendors.
+final insightsProvider = Provider<List<Insight>>((ref) {
+  final roadmap = ref.watch(roadmapProvider);
+  final budget = ref.watch(budgetProvider);
+  final vendors = ref.watch(vendorsProvider);
+  final profile = ref.watch(profileProvider);
+  return roadmap.maybeWhen(
+    data: (r) => ref.read(insightsEngineProvider).analyze(
+          scheduled: r.scheduled,
+          budget: budget,
+          vendors: vendors,
+          profile: profile,
+        ),
     orElse: () => const [],
   );
 });

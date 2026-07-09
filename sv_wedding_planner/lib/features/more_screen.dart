@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/providers.dart';
+import 'insights_screen.dart';
 import 'modules.dart';
 import 'onboarding_screen.dart';
+import 'reminders_screen.dart';
 
 class MoreScreen extends ConsumerWidget {
   const MoreScreen({super.key});
@@ -15,7 +17,17 @@ class MoreScreen extends ConsumerWidget {
     final shopping = ref.watch(shoppingProvider);
     final guests = ref.watch(guestsProvider);
 
+    final insights = ref.watch(insightsProvider);
+    final reminders = ref.watch(remindersProvider);
+    final overdue = reminders.where((r) => r.overdue).length;
+
     final tiles = <_MoreTile>[
+      _MoreTile(Icons.auto_awesome, 'AI Insights',
+          insights.isEmpty ? 'All healthy' : '${insights.length} to review', Colors.deepPurple,
+          () => const InsightsScreen()),
+      _MoreTile(Icons.notifications_active, 'Reminders',
+          overdue > 0 ? '$overdue overdue' : '${reminders.length} scheduled', Colors.redAccent,
+          () => const RemindersScreen()),
       _MoreTile(Icons.handshake, 'Vendors', '${vendors.length} tracked', Colors.teal,
           () => const VendorsScreen()),
       _MoreTile(Icons.shopping_bag, 'Shopping', '${shopping.length} items', Colors.orange,
